@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Env — không bao giờ commit secret
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Harness workspace (đầu ra trung gian của agent, giữ local để audit)
+_workspace/
+
+# OS
+Thumbs.db
+.DS_Store

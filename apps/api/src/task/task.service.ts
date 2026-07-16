@@ -1,0 +1,251 @@
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { Prisma, TaskStatus } from '@personal-os/database';
+import { AuditService } from '../audit/audit.service';
+import { Paginated, PageMeta } from '../common/http/paginated';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { QueryTaskDto } from './dto/query-task.dto';
+import { TaskResponseDto } from './dto/task-response.dto';
+import { TimeLogResponseDto } from './dto/timelog-response.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { TaskRepository } from './task.repository';
+
+@Injectable()
+export class TaskService {
+  constructor(
+    private readonly repo: TaskRepository,
+    private readonly audit: AuditService,
+  ) {}
+
+  async create(userId: string, dto: CreateTaskDto): Promise<TaskResponseDto> {
+    const projectId = await this.resolveProjectId(userId, dto.projectId);
+    if (dto.parentTaskId) {
+      await this.assertTaskExists(dto.parentTaskId, userId);
+    }
+
+    const status = dto.status ?? TaskStatus.TODO;
+    const task = await this.repo.create({
+      projectId,
+      parentTaskId: dto.parentTaskId ?? null,
+      title: dto.title,
+      description: dto.description ?? null,
+      impact: dto.impact,
+      urgency: dto.urgency,
+      priorityScore: dto.impact * dto.urgency, // Business Rule: Impact × Urgency
+      estimateMinute: dto.estimateMinute ?? null,
+      status,
+      deadline: dto.deadline ? new Date(dto.deadline) : null,
+      completedAt: status === TaskStatus.DONE ? new Date() : null,
+    });
+
+    await this.audit.record({
+      userId,
+      action: 'task.create',
+      entityType: 'Task',
+      entityId: task.id,
+    });
+    return TaskResponseDto.from(task);
+  }
+
+  async list(
+    userId: string,
+    query: QueryTaskDto,
+  ): Promise<Paginated<TaskResponseDto[]>> {
+    const { items, total } = await this.repo.findManyScoped(userId, {
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+      keyword: query.keyword,
+      status: query.status,
+      projectId: query.projectId,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    });
+
+    const meta: PageMeta = {
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize) || 0,
+    };
+    return new Paginated(items.map(TaskResponseDto.from), meta as unknown as Record<string, unknown>);
+  }
+
+  async get(userId: string, id: string): Promise<TaskResponseDto> {
+    const task = await this.assertTaskExists(id, userId);
+    return TaskResponseDto.from(task);
+  }
+
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateTaskDto,
+  ): Promise<TaskResponseDto> {
+    const existing = await this.assertTaskExists(id, userId);
+
+    if (dto.projectId) {
+      const owned = await this.repo.findOwnedProjectId(dto.projectId, userId);
+      if (!owned) {
+        throw new NotFoundException('Project not found');
+      }
+    }
+    if (dto.parentTaskId) {
+      await this.assertTaskExists(dto.parentTaskId, userId);
+    }
+
+    // Enforce parent/child completion rule when transitioning to DONE via PATCH.
+    if (dto.status === TaskStatus.DONE) {
+      await this.assertSubtasksComplete(id);
+    }
+
+    const data: Prisma.TaskUncheckedUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.impact !== undefined) data.impact = dto.impact;
+    if (dto.urgency !== undefined) data.urgency = dto.urgency;
+    if (dto.estimateMinute !== undefined) data.estimateMinute = dto.estimateMinute;
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      // Keep completedAt in sync with the DONE transition (Business Rule doc 02).
+      if (dto.status === TaskStatus.DONE) {
+        if (existing.status !== TaskStatus.DONE) data.completedAt = new Date();
+      } else {
+        data.completedAt = null;
+      }
+    }
+    if (dto.projectId !== undefined) data.projectId = dto.projectId;
+    if (dto.parentTaskId !== undefined) data.parentTaskId = dto.parentTaskId;
+    if (dto.deadline !== undefined) {
+      data.deadline = dto.deadline ? new Date(dto.deadline) : null;
+    }
+    if (dto.impact !== undefined || dto.urgency !== undefined) {
+      const impact = dto.impact ?? existing.impact;
+      const urgency = dto.urgency ?? existing.urgency;
+      data.priorityScore = impact * urgency;
+    }
+
+    const task = await this.repo.update(id, data);
+    await this.audit.record({
+      userId,
+      action: 'task.update',
+      entityType: 'Task',
+      entityId: task.id,
+      metadata: { fields: Object.keys(data) },
+    });
+    return TaskResponseDto.from(task);
+  }
+
+  async remove(userId: string, id: string): Promise<{ id: string; deleted: true }> {
+    await this.assertTaskExists(id, userId);
+    await this.repo.softDelete(id);
+    await this.audit.record({
+      userId,
+      action: 'task.delete',
+      entityType: 'Task',
+      entityId: id,
+    });
+    return { id, deleted: true };
+  }
+
+  async complete(userId: string, id: string): Promise<TaskResponseDto> {
+    await this.assertTaskExists(id, userId);
+    await this.assertSubtasksComplete(id);
+
+    // Business Rule doc 02: store completion time when a task moves to DONE.
+    const task = await this.repo.update(id, {
+      status: TaskStatus.DONE,
+      completedAt: new Date(),
+    });
+    await this.audit.record({
+      userId,
+      action: 'task.complete',
+      entityType: 'Task',
+      entityId: id,
+    });
+    return TaskResponseDto.from(task);
+  }
+
+  async startTimer(userId: string, id: string): Promise<TimeLogResponseDto> {
+    await this.assertTaskExists(id, userId);
+    const open = await this.repo.findOpenTimeLog(id);
+    if (open) {
+      throw new ConflictException('A timer is already running for this task');
+    }
+    const log = await this.repo.startTimer(id);
+    await this.audit.record({
+      userId,
+      action: 'task.timer.start',
+      entityType: 'Task',
+      entityId: id,
+    });
+    return TimeLogResponseDto.from(log);
+  }
+
+  async stopTimer(userId: string, id: string): Promise<TimeLogResponseDto> {
+    await this.assertTaskExists(id, userId);
+    const open = await this.repo.findOpenTimeLog(id);
+    if (!open) {
+      throw new UnprocessableEntityException('No running timer for this task');
+    }
+    const endTime = new Date();
+    const durationMinutes = Math.max(
+      0,
+      Math.round((endTime.getTime() - open.startTime.getTime()) / 60000),
+    );
+    const log = await this.repo.stopTimer(open.id, endTime, durationMinutes);
+    await this.audit.record({
+      userId,
+      action: 'task.timer.stop',
+      entityType: 'Task',
+      entityId: id,
+      metadata: { durationMinutes },
+    });
+    return TimeLogResponseDto.from(log);
+  }
+
+  // ---- helpers ----
+
+  private async resolveProjectId(
+    userId: string,
+    projectId?: string,
+  ): Promise<string> {
+    if (projectId) {
+      const owned = await this.repo.findOwnedProjectId(projectId, userId);
+      if (!owned) {
+        throw new NotFoundException('Project not found');
+      }
+      return owned;
+    }
+    const inbox = await this.repo.findInboxProjectId(userId);
+    if (!inbox) {
+      throw new UnprocessableEntityException(
+        'No default Inbox project for this user',
+      );
+    }
+    return inbox;
+  }
+
+  private async assertTaskExists(id: string, userId: string) {
+    const task = await this.repo.findByIdScoped(id, userId);
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+    return task;
+  }
+
+  /** Business Rule: a parent task completes only when all its subtasks are done. */
+  private async assertSubtasksComplete(taskId: string): Promise<void> {
+    const subtasks = await this.repo.findActiveSubtasks(taskId);
+    const blocking = subtasks.filter((t) => t.status !== TaskStatus.DONE);
+    if (blocking.length > 0) {
+      throw new UnprocessableEntityException(
+        'Cannot complete task while subtasks are not done',
+      );
+    }
+  }
+}

@@ -1,0 +1,537 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Module 001_auth
+// ============================================================
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// Tenant boundary. Every User belongs to exactly one Workspace so the
+/// data model is multi-tenant ready without a rewrite when team sharing arrives.
+model Workspace {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(200)
+  slug      String?   @unique @db.VarChar(120)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  users User[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  workspaceId  String    @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  name         String    @db.VarChar(200)
+  passwordHash String?   @db.VarChar(255)
+  role         UserRole  @default(MEMBER)
+  timezone     String    @default("Asia/Ho_Chi_Minh") @db.VarChar(64)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  visions        Vision[]
+  tags           Tag[]
+  attachments    Attachment[]
+  habits         Habit[]
+  calendarEvents CalendarEvent[]
+  wallets        Wallet[]
+  budgets        Budget[]
+  investments    Investment[]
+  assets         Asset[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================================
+// Module 002_goal
+// ============================================================
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  MISSED
+  ARCHIVED
+}
+
+model Vision {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  title      String    @db.VarChar(255)
+  targetYear Int?      @db.SmallInt
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt  DateTime? @db.Timestamptz(6)
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  goals Goal[]
+
+  @@index([userId])
+  @@map("visions")
+}
+
+model Goal {
+  id           String     @id @default(uuid()) @db.Uuid
+  visionId     String     @db.Uuid
+  title        String     @db.VarChar(255)
+  targetValue  Decimal?   @db.Decimal(18, 2)
+  currentValue Decimal    @default(0) @db.Decimal(18, 2)
+  deadline     DateTime?  @db.Date
+  status       GoalStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?  @db.Timestamptz(6)
+
+  vision   Vision    @relation(fields: [visionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  kpis     KPI[]
+  projects Project[]
+
+  @@index([visionId])
+  @@index([status])
+  @@index([deadline])
+  @@map("goals")
+}
+
+/// Measurable indicator attached to a Goal. Fields inferred (doc 10 lists the
+/// table but no columns); kept minimal.
+model KPI {
+  id           String    @id @default(uuid()) @db.Uuid
+  goalId       String    @db.Uuid
+  name         String    @db.VarChar(255)
+  unit         String?   @db.VarChar(50)
+  targetValue  Decimal?  @db.Decimal(18, 2)
+  currentValue Decimal   @default(0) @db.Decimal(18, 2)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([goalId])
+  @@map("kpis")
+}
+
+// ============================================================
+// Module 003_project
+// ============================================================
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id        String        @id @default(uuid()) @db.Uuid
+  goalId    String        @db.Uuid
+  title     String        @db.VarChar(255)
+  status    ProjectStatus @default(PLANNING)
+  progress  Decimal       @default(0) @db.Decimal(5, 2)
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?     @db.Timestamptz(6)
+
+  goal       Goal        @relation(fields: [goalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  milestones Milestone[]
+  tasks      Task[]
+
+  @@index([goalId])
+  @@index([status])
+  @@map("projects")
+}
+
+/// Checkpoint within a Project. Fields inferred (doc 10 lists the table, no columns).
+model Milestone {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  title       String    @db.VarChar(255)
+  dueDate     DateTime? @db.Timestamptz(6)
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([projectId])
+  @@map("milestones")
+}
+
+// ============================================================
+// Module 004_task
+// ============================================================
+
+enum TaskStatus {
+  INBOX
+  TODO
+  DOING
+  REVIEW
+  DONE
+  ARCHIVED
+}
+
+model Task {
+  id            String     @id @default(uuid()) @db.Uuid
+  projectId     String     @db.Uuid
+  parentTaskId  String?    @db.Uuid
+  title         String     @db.VarChar(255)
+  description   String?    @db.Text
+  impact        Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  urgency       Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  priorityScore Int?       @db.SmallInt // computed by backend (calculate_priority)
+  status         TaskStatus @default(TODO)
+  deadline       DateTime?  @db.Timestamptz(6)
+  completedAt    DateTime?  @db.Timestamptz(6) // set when status -> DONE (Business Rule doc 02)
+  estimateMinute Int?       // estimated effort in minutes; app validates >= 0 (doc 02). spentMinute derived from TimeLog.
+  createdAt      DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?  @db.Timestamptz(6)
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  parentTask  Task?        @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  subTasks    Task[]       @relation("TaskSubtasks")
+  checklists  Checklist[]
+  timeLogs    TimeLog[]
+  taskTags    TaskTag[]
+  attachments Attachment[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@index([status])
+  @@index([deadline])
+  @@map("tasks")
+}
+
+/// Checklist item under a Task. Fields inferred (doc 03 states Task 1-N Checklist, no columns).
+model Checklist {
+  id        String    @id @default(uuid()) @db.Uuid
+  taskId    String    @db.Uuid
+  title     String    @db.VarChar(255)
+  isDone    Boolean   @default(false)
+  position  Int       @default(0) @db.SmallInt
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([taskId])
+  @@map("checklists")
+}
+
+/// Time tracking entry under a Task. Fields inferred (doc 03 states Task 1-N TimeLog, no columns).
+model TimeLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  taskId          String    @db.Uuid
+  startTime       DateTime  @db.Timestamptz(6)
+  endTime         DateTime? @db.Timestamptz(6)
+  durationMinutes Int?
+  note            String?   @db.Text
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime? @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([taskId])
+  @@map("timelogs")
+}
+
+/// Personal label owned by a User. Fields inferred.
+model Tag {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  name      String    @db.VarChar(100)
+  color     String?   @db.VarChar(20)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  taskTags TaskTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("tags")
+}
+
+/// Explicit join table Task <-> Tag. Pure link table: hard-delete on unlink
+/// (no soft-delete column) so the unique pair does not leak a dead slot.
+model TaskTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  tagId     String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([taskId, tagId])
+  @@index([taskId])
+  @@index([tagId])
+  @@map("task_tags")
+}
+
+/// File attachment owned by a User, optionally linked to a Task. Fields inferred.
+model Attachment {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  taskId    String?   @db.Uuid
+  fileName  String    @db.VarChar(255)
+  fileUrl   String    @db.Text
+  fileType  String?   @db.VarChar(100)
+  fileSize  Int?
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([taskId])
+  @@map("attachments")
+}
+
+// ============================================================
+// Module 005_habit (daily: habit tracking + calendar)
+// ============================================================
+
+/// Recurring habit owned by a User. Fields inferred (doc 10 lists table, no columns).
+/// frequency kept as free String (e.g. DAILY/WEEKLY) — not one of the 7 mandated enums.
+model Habit {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  name            String    @db.VarChar(255)
+  description     String?   @db.Text
+  frequency       String    @default("DAILY") @db.VarChar(20)
+  targetPerPeriod Int       @default(1) @db.SmallInt
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime? @db.Timestamptz(6)
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  logs HabitLog[]
+
+  @@index([userId])
+  @@map("habits")
+}
+
+/// One check-in for a Habit on a given date. Fields inferred. One log per habit per day.
+model HabitLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  habitId   String    @db.Uuid
+  logDate   DateTime  @db.Date
+  value     Int       @default(1) @db.SmallInt
+  note      String?   @db.Text
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([habitId, logDate])
+  @@index([habitId])
+  @@map("habit_logs")
+}
+
+/// Calendar event owned by a User. Fields inferred (doc 10 lists table, no columns).
+model CalendarEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  startTime   DateTime  @db.Timestamptz(6)
+  endTime     DateTime? @db.Timestamptz(6)
+  location    String?   @db.VarChar(255)
+  allDay      Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([startTime])
+  @@map("calendar_events")
+}
+
+// ============================================================
+// Module 006_finance
+// ============================================================
+
+enum WalletType {
+  CASH
+  BANK
+  CREDIT_CARD
+  E_WALLET
+  SAVINGS
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model Wallet {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  name      String     @db.VarChar(100)
+  type      WalletType
+  balance   Decimal    @default(0) @db.Decimal(18, 2) // maintained by backend on transaction changes
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?  @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("wallets")
+}
+
+/// Spending budget owned by a User. Fields inferred (doc 10 lists table, no columns).
+model Budget {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  name      String    @db.VarChar(100)
+  amount    Decimal   @db.Decimal(18, 2)
+  period    String    @default("MONTHLY") @db.VarChar(20)
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@map("budgets")
+}
+
+model Transaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  walletId        String          @db.Uuid
+  type            TransactionType
+  amount          Decimal         @db.Decimal(18, 2)
+  description     String?         @db.VarChar(255)
+  transactionDate DateTime        @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime?       @db.Timestamptz(6)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([walletId])
+  @@index([type])
+  @@index([transactionDate])
+  @@map("transactions")
+}
+
+/// Investment holding owned by a User. Fields inferred (doc 10 lists table, no columns).
+model Investment {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  name         String    @db.VarChar(255)
+  type         String?   @db.VarChar(50)
+  amount       Decimal   @db.Decimal(18, 2)
+  currentValue Decimal?  @db.Decimal(18, 2)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@map("investments")
+}
+
+/// Owned asset (net-worth item), owned by a User. Fields inferred. Distinct from
+/// Attachment (a file) — Asset here is a financial/net-worth entry.
+model Asset {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  name      String    @db.VarChar(255)
+  type      String?   @db.VarChar(50)
+  value     Decimal   @db.Decimal(18, 2)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@map("assets")
+}
+
+// ============================================================
+// Module 007_notification (notifications + audit/activity log)
+// ============================================================
+
+enum NotificationType {
+  REMINDER
+  DEADLINE
+  SYSTEM
+  ACHIEVEMENT
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String?          @db.Text
+  isRead    Boolean          @default(false)
+  readAt    DateTime?        @db.Timestamptz(6)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?        @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@map("notifications")
+}
+
+/// Audit trail (doc 03 rule: "Audit Log cho mọi thay đổi quan trọng"). Append-only
+/// in practice; keeps the standard timestamp columns for schema consistency.
+/// entityType/entityId are a loose polymorphic pointer, metadata holds the diff.
+model ActivityLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  action     String    @db.VarChar(100)
+  entityType String?   @db.VarChar(100)
+  entityId   String?   @db.Uuid
+  metadata   Json?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt  DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("activity_logs")
+}
