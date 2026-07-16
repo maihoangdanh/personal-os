@@ -2,21 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListChecks, LogOut } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  Repeat,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useLogout } from "@/features/auth/hooks/useAuth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { useUnreadCount } from "@/features/notification/hooks/useNotifications";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/habits", label: "Habits", icon: Repeat },
+  { href: "/reminders", label: "Reminders", icon: Bell, badge: "unread" as const },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const logoutMut = useLogout();
   const user = useAuthStore((s) => s.user);
+  const unreadQuery = useUnreadCount();
+  const unread = unreadQuery.data ?? 0;
 
   return (
     <aside className="flex w-60 flex-col border-r border-border bg-card">
@@ -27,6 +40,7 @@ export function Sidebar() {
         {NAV.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
+          const showBadge = item.badge === "unread" && unread > 0;
           return (
             <Link
               key={item.href}
@@ -39,7 +53,12 @@ export function Sidebar() {
               )}
             >
               <Icon className="h-4 w-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}
