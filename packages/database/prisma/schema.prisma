@@ -496,22 +496,33 @@ enum NotificationType {
   ACHIEVEMENT
 }
 
+/// Notification / Reminder (a Reminder = Notification with type REMINDER; no separate table).
+/// read/unread, scheduledFor+sentAt (Business Rule "gửi một lần cho mỗi mốc thời gian"),
+/// snoozedUntil (Business Rule "Có thể Snooze") are grounded in doc 02 Notification Rules.
+/// relatedEntity* is a loose pointer to what the notification is about (INFERRED — for the
+/// Reminder module to link a reminder to a Task/CalendarEvent/Habit; not mandated by doc 02).
 model Notification {
-  id        String           @id @default(uuid()) @db.Uuid
-  userId    String           @db.Uuid
-  type      NotificationType
-  title     String           @db.VarChar(255)
-  message   String?          @db.Text
-  isRead    Boolean          @default(false)
-  readAt    DateTime?        @db.Timestamptz(6)
-  createdAt DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
-  deletedAt DateTime?        @db.Timestamptz(6)
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String           @db.Uuid
+  type              NotificationType
+  title             String           @db.VarChar(255)
+  message           String?          @db.Text
+  isRead            Boolean          @default(false)
+  readAt            DateTime?        @db.Timestamptz(6)
+  scheduledFor      DateTime?        @db.Timestamptz(6) // time point the reminder should fire
+  sentAt            DateTime?        @db.Timestamptz(6) // null = not yet delivered; enforces send-once
+  snoozedUntil      DateTime?        @db.Timestamptz(6) // set when user snoozes
+  relatedEntityType String?          @db.VarChar(50) // e.g. "Task", "CalendarEvent", "Habit" (inferred)
+  relatedEntityId   String?          @db.Uuid
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime?        @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([userId])
   @@index([type])
+  @@index([scheduledFor])
   @@map("notifications")
 }
 

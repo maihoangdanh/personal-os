@@ -132,6 +132,33 @@ describe('Auth + Task (e2e)', () => {
     expect(res.body.data.some((t: any) => t.id === createdTaskId)).toBe(true);
   });
 
+  it('reflects a running timer via isTimerRunning + activeTimeLogId', async () => {
+    const started = await request(app.getHttpServer())
+      .post(`/api/v1/tasks/${createdTaskId}/timer/start`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const activeId = started.body.data.id;
+
+    const running = await request(app.getHttpServer())
+      .get(`/api/v1/tasks/${createdTaskId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(running.body.data.isTimerRunning).toBe(true);
+    expect(running.body.data.activeTimeLogId).toBe(activeId);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/tasks/${createdTaskId}/timer/stop`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const stopped = await request(app.getHttpServer())
+      .get(`/api/v1/tasks/${createdTaskId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(stopped.body.data.isTimerRunning).toBe(false);
+    expect(stopped.body.data.activeTimeLogId).toBeNull();
+  });
+
   it('moves the task through DOING and REVIEW (case-insensitive wire)', async () => {
     // lowercase "doing" must be accepted and echoed back as canonical UPPER
     const toDoing = await request(app.getHttpServer())

@@ -135,6 +135,24 @@ describe('TaskService', () => {
     });
   });
 
+  describe('timer flags on TaskResponseDto', () => {
+    it('exposes isTimerRunning + activeTimeLogId when an open TimeLog exists', async () => {
+      repo.findByIdScoped.mockResolvedValue(
+        makeTask({ timeLogs: [{ id: 'log-9' }] }),
+      );
+      const res = await service.get(userId, 'task-1');
+      expect(res.isTimerRunning).toBe(true);
+      expect(res.activeTimeLogId).toBe('log-9');
+    });
+
+    it('reports no running timer when timeLogs is empty', async () => {
+      repo.findByIdScoped.mockResolvedValue(makeTask({ timeLogs: [] }));
+      const res = await service.get(userId, 'task-1');
+      expect(res.isTimerRunning).toBe(false);
+      expect(res.activeTimeLogId).toBeNull();
+    });
+  });
+
   describe('startTimer', () => {
     it('rejects when a timer is already running (409)', async () => {
       repo.findByIdScoped.mockResolvedValue(makeTask());

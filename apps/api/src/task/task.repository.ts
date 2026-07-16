@@ -12,6 +12,23 @@ function ownedByUser(userId: string): Prisma.TaskWhereInput {
   return { project: { goal: { vision: { userId } } } };
 }
 
+/**
+ * Include the single open TimeLog (endTime null) so responses can expose
+ * isTimerRunning / activeTimeLogId without an extra round-trip.
+ */
+const withActiveTimer = {
+  timeLogs: {
+    where: { endTime: null, deletedAt: null },
+    select: { id: true },
+    orderBy: { startTime: 'desc' },
+    take: 1,
+  },
+} satisfies Prisma.TaskInclude;
+
+export type TaskWithTimer = Prisma.TaskGetPayload<{
+  include: typeof withActiveTimer;
+}>;
+
 export interface TaskListFilter {
   page: number;
   pageSize: number;
@@ -49,20 +66,21 @@ export class TaskRepository {
     return project?.id ?? null;
   }
 
-  create(data: Prisma.TaskUncheckedCreateInput): Promise<Task> {
-    return prisma.task.create({ data });
+  create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithTimer> {
+    return prisma.task.create({ data, include: withActiveTimer });
   }
 
-  findByIdScoped(id: string, userId: string): Promise<Task | null> {
+  findByIdScoped(id: string, userId: string): Promise<TaskWithTimer | null> {
     return prisma.task.findFirst({
       where: { id, deletedAt: null, ...ownedByUser(userId) },
+      include: withActiveTimer,
     });
   }
 
   async findManyScoped(
     userId: string,
     filter: TaskListFilter,
-  ): Promise<{ items: Task[]; total: number }> {
+  ): Promise<{ items: TaskWithTimer[]; total: number }> {
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
       ...ownedByUser(userId),
@@ -92,14 +110,15 @@ export class TaskRepository {
         orderBy: { [filter.sortBy]: filter.sortOrder },
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
+        include: withActiveTimer,
       }),
       prisma.task.count({ where }),
     ]);
     return { items, total };
   }
 
-  update(id: string, data: Prisma.TaskUncheckedUpdateInput): Promise<Task> {
-    return prisma.task.update({ where: { id }, data });
+  update(id: string, data: Prisma.TaskUncheckedUpdateInput): Promise<TaskWithTimer> {
+    return prisma.task.update({ where: { id }, data, include: withActiveTimer });
   }
 
   softDelete(id: string): Promise<Task> {
