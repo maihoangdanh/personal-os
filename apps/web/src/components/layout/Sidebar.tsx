@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   CalendarDays,
+  FolderKanban,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Repeat,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,8 @@ import { useUnreadCount } from "@/features/notification/hooks/useNotifications";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/reminders", label: "Reminders", icon: Bell, badge: "unread" as const },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },

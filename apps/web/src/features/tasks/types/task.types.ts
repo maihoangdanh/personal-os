@@ -25,6 +25,7 @@ export interface Task {
   id: string;
   projectId: string;
   parentTaskId: string | null;
+  milestoneId: string | null; // Phase 2: gom task dưới 1 Milestone (cùng project), optional
   title: string;
   description: string | null;
   impact: number; // 1..5
@@ -62,10 +63,16 @@ export interface CreateTaskPayload {
   deadline?: string; // ISO, PHẢI ở tương lai
   projectId?: string; // uuid; thiếu → Inbox mặc định
   parentTaskId?: string; // uuid
+  milestoneId?: string; // uuid; milestone phải thuộc CÙNG project với task (khác project → 422)
 }
 
-/** UpdateTaskDto — mọi field optional */
-export type UpdateTaskPayload = Partial<CreateTaskPayload>;
+/**
+ * UpdateTaskDto — mọi field optional.
+ * milestoneId nhận `string` để gán hoặc `null` để gỡ (khác Create chỉ nhận string).
+ */
+export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, "milestoneId">> & {
+  milestoneId?: string | null;
+};
 
 export type TaskSortBy =
   | "createdAt"
