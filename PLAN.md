@@ -61,21 +61,18 @@ gốc trong PRD. Chú giải trạng thái:
 
 ---
 
-## Phase 2 — Goal & Project
+## Phase 2 — Goal & Project ✅ (trừ vài mục nhỏ)
 
-Schema đã có sẵn từ đầu (`Vision, Goal, KPI, Project, Milestone` — migration 002/003), nhưng
-**chưa có module backend/frontend nào được build**.
-
-- [ ] ❌ Backend: Vision CRUD
-- [ ] ❌ Backend: Goal CRUD + liên kết KPI
-- [ ] ❌ Backend: Project CRUD + Milestone
-- [ ] ❌ Backend: Task liên kết Project (hiện Task đã bắt buộc `projectId`, dùng project "Inbox" mặc định — cần mở rộng cho phép chọn Project thật khi module này build)
-- [ ] ❌ Frontend: Goal Tree (cây phân cấp Vision→Goal→KPI)
-- [ ] ❌ Frontend: Project List + chi tiết Project
-- [ ] ❌ Frontend: Kanban board (Todo/Doing/Review/Done — dùng lại đúng TaskStatus đã có, kéo-thả)
-- [ ] ❌ Frontend: Timeline/Gantt
-- [ ] ❌ Frontend: Progress tracking (Project.progress, Goal.currentValue — cột đã có, cần logic tính + cập nhật trong transaction)
-- [ ] ❌ Dashboard: bổ sung Goal Progress + Projects progress widget
+- [x] ✅ Backend: Vision CRUD — verify e2e thật
+- [x] ✅ Backend: Goal CRUD + KPI + `GET /goals/{id}/progress` (`progress = min(100, current/target*100)`, `currentValue` nhập tay)
+- [x] ✅ Backend: Project CRUD + Milestone + `GET /projects/{id}/progress` (`progress` = % task DONE, tự tính trong transaction)
+- [x] ✅ Backend: Task liên kết Project thật + `milestoneId` (validate cùng-project), rollup Project.progress/Milestone.isCompleted mỗi khi task đổi status — 55 unit + 17 e2e pass
+- [x] ✅ Frontend: Goal Tree (Vision→Goal→KPI, progress bar)
+- [x] ✅ Frontend: Project List + chi tiết (Milestone list, progress)
+- [x] ✅ Frontend: Kanban board (6 cột TaskStatus, kéo-thả) — verify live: kéo DONE→DOING làm progress/milestone cập nhật đúng
+- [x] ✅ Frontend: Task form chọn Project/Milestone thật
+- [ ] 🔄 Timeline/Gantt — **rút gọn** thành danh sách Milestone sắp theo `dueDate` (không vẽ Gantt chart thật, quyết định có ghi chú trong `_workspace/10_frontend_goal-project.md`)
+- [ ] ❌ Dashboard: bổ sung Goal Progress + Projects progress widget — còn thiếu, làm được ngay không cần chờ Phase 3
 
 ## Phase 3 — Finance
 
@@ -122,7 +119,8 @@ Chưa bắt đầu — schema AI (migration `008_ai`) cũng chưa tạo vì chư
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-**Phase 1 coi như xong** (trừ các mục hoãn có chủ đích trong bảng trên). Tiếp theo:
+**Phase 1 + Phase 2 coi như xong** (trừ các mục hoãn có chủ đích + Gantt rút gọn). Tiếp theo:
 
-1. Bắt đầu **Phase 2: Goal & Project** — Vision/Goal/KPI/Project/Milestone CRUD, Kanban, Timeline, Progress. Chưa dựng khung code trước (tránh module rỗng nằm chết) — dựng ngay khi bắt tay vào.
-2. Phase 3 (Finance), Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
+1. Bổ sung Goal Progress + Projects progress widget vào Dashboard (nhanh, không cần chờ Phase 3).
+2. Bắt đầu **Phase 3: Finance** — Wallet/Transaction/Budget/Investment/Asset CRUD + Report.
+3. Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
