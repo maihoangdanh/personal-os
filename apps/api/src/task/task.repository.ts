@@ -6,6 +6,10 @@ import {
   TaskStatus,
   TimeLog,
 } from '@personal-os/database';
+import {
+  persistMilestoneCompletion,
+  persistProjectProgress,
+} from '../common/rollup';
 
 /** Scopes any Task query to the owning user via Task -> Project -> Goal -> Vision. */
 function ownedByUser(userId: string): Prisma.TaskWhereInput {
@@ -66,8 +70,34 @@ export class TaskRepository {
     return project?.id ?? null;
   }
 
+  /** Returns {id, projectId} if the milestone belongs to the user, else null. */
+  findOwnedMilestone(
+    milestoneId: string,
+    userId: string,
+  ): Promise<{ id: string; projectId: string } | null> {
+    return prisma.milestone.findFirst({
+      where: {
+        id: milestoneId,
+        deletedAt: null,
+        project: { goal: { vision: { userId } } },
+      },
+      select: { id: true, projectId: true },
+    });
+  }
+
+  /**
+   * Create + recompute the owning Project.progress (and Milestone.isCompleted if
+   * assigned) in one transaction. See common/rollup.
+   */
   create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithTimer> {
-    return prisma.task.create({ data, include: withActiveTimer });
+    return prisma.$transaction(async (tx) => {
+      const task = await tx.task.create({ data, include: withActiveTimer });
+      await persistProjectProgress(tx, task.projectId);
+      if (task.milestoneId) {
+        await persistMilestoneCompletion(tx, task.milestoneId);
+      }
+      return task;
+    });
   }
 
   findByIdScoped(id: string, userId: string): Promise<TaskWithTimer | null> {
@@ -117,14 +147,49 @@ export class TaskRepository {
     return { items, total };
   }
 
-  update(id: string, data: Prisma.TaskUncheckedUpdateInput): Promise<TaskWithTimer> {
-    return prisma.task.update({ where: { id }, data, include: withActiveTimer });
+  /**
+   * Update + recompute rollups in one transaction. `affectedProjectIds` /
+   * `affectedMilestoneIds` carry the task's PREVIOUS project/milestone so a moved
+   * task refreshes both the old and new parents. The task's current project (and
+   * milestone, if any) are always included.
+   */
+  update(
+    id: string,
+    data: Prisma.TaskUncheckedUpdateInput,
+    affectedProjectIds: string[] = [],
+    affectedMilestoneIds: string[] = [],
+  ): Promise<TaskWithTimer> {
+    return prisma.$transaction(async (tx) => {
+      const task = await tx.task.update({
+        where: { id },
+        data,
+        include: withActiveTimer,
+      });
+      const projectIds = new Set<string>([task.projectId, ...affectedProjectIds]);
+      const milestoneIds = new Set<string>([
+        ...(task.milestoneId ? [task.milestoneId] : []),
+        ...affectedMilestoneIds,
+      ]);
+      for (const pid of projectIds) await persistProjectProgress(tx, pid);
+      for (const mid of milestoneIds) await persistMilestoneCompletion(tx, mid);
+      return task;
+    });
   }
 
-  softDelete(id: string): Promise<Task> {
-    return prisma.task.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+  /** Soft-delete + recompute the parent project/milestone rollups in one transaction. */
+  softDelete(
+    id: string,
+    projectId: string,
+    milestoneId: string | null,
+  ): Promise<Task> {
+    return prisma.$transaction(async (tx) => {
+      const task = await tx.task.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      await persistProjectProgress(tx, projectId);
+      if (milestoneId) await persistMilestoneCompletion(tx, milestoneId);
+      return task;
     });
   }
 

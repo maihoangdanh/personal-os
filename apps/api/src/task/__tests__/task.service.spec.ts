@@ -10,6 +10,7 @@ const makeTask = (over: Partial<any> = {}) => ({
   id: 'task-1',
   projectId: 'proj-inbox',
   parentTaskId: null,
+  milestoneId: null,
   title: 'Test',
   description: null,
   impact: 3,
@@ -33,6 +34,7 @@ describe('TaskService', () => {
     repo = {
       findInboxProjectId: jest.fn(),
       findOwnedProjectId: jest.fn(),
+      findOwnedMilestone: jest.fn(),
       create: jest.fn(),
       findByIdScoped: jest.fn(),
       findManyScoped: jest.fn(),
@@ -83,6 +85,39 @@ describe('TaskService', () => {
       expect(repo.create.mock.calls[0][0].projectId).toBe('proj-x');
     });
 
+    it('assigns a milestone that belongs to the same project', async () => {
+      repo.findOwnedProjectId.mockResolvedValue('proj-x');
+      repo.findOwnedMilestone.mockResolvedValue({ id: 'ms-1', projectId: 'proj-x' });
+      repo.create.mockImplementation(async (data: any) => makeTask(data));
+
+      await service.create(userId, {
+        title: 'T',
+        impact: 1,
+        urgency: 1,
+        projectId: 'proj-x',
+        milestoneId: 'ms-1',
+      } as any);
+
+      expect(repo.create.mock.calls[0][0].milestoneId).toBe('ms-1');
+    });
+
+    it('rejects a milestone from a different project (422)', async () => {
+      repo.findOwnedProjectId.mockResolvedValue('proj-x');
+      repo.findOwnedMilestone.mockResolvedValue({
+        id: 'ms-1',
+        projectId: 'proj-other',
+      });
+      await expect(
+        service.create(userId, {
+          title: 'T',
+          impact: 1,
+          urgency: 1,
+          projectId: 'proj-x',
+          milestoneId: 'ms-1',
+        } as any),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
     it('rejects a projectId the user does not own with 404', async () => {
       repo.findOwnedProjectId.mockResolvedValue(null);
       await expect(
@@ -130,6 +165,8 @@ describe('TaskService', () => {
           status: TaskStatus.DONE,
           completedAt: expect.any(Date),
         }),
+        ['proj-inbox'],
+        [],
       );
       expect(res.status).toBe(TaskStatus.DONE);
     });

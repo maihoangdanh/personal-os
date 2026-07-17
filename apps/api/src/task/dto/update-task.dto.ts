@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { TaskStatus } from '@personal-os/database';
 import { IsAfterNow } from '../validators/is-after-now.validator';
@@ -65,4 +66,10 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsUUID()
   parentTaskId?: string;
+
+  /** Set to a uuid to assign (same project), or null to unassign from a Milestone. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  milestoneId?: string | null;
 }

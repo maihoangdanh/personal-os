@@ -26,11 +26,15 @@ export class TaskService {
     if (dto.parentTaskId) {
       await this.assertTaskExists(dto.parentTaskId, userId);
     }
+    const milestoneId = dto.milestoneId
+      ? await this.resolveMilestoneId(userId, dto.milestoneId, projectId)
+      : null;
 
     const status = dto.status ?? TaskStatus.TODO;
     const task = await this.repo.create({
       projectId,
       parentTaskId: dto.parentTaskId ?? null,
+      milestoneId,
       title: dto.title,
       description: dto.description ?? null,
       impact: dto.impact,
@@ -88,14 +92,29 @@ export class TaskService {
   ): Promise<TaskResponseDto> {
     const existing = await this.assertTaskExists(id, userId);
 
+    let finalProjectId = existing.projectId;
     if (dto.projectId) {
       const owned = await this.repo.findOwnedProjectId(dto.projectId, userId);
       if (!owned) {
         throw new NotFoundException('Project not found');
       }
+      finalProjectId = owned;
     }
     if (dto.parentTaskId) {
       await this.assertTaskExists(dto.parentTaskId, userId);
+    }
+
+    // Resolve the milestone assignment (uuid = assign, null = unassign). If the
+    // project moved and the caller didn't touch milestoneId, auto-unassign a
+    // now cross-project milestone to keep the same-project invariant.
+    let newMilestoneId: string | null | undefined;
+    if (dto.milestoneId !== undefined) {
+      newMilestoneId =
+        dto.milestoneId === null
+          ? null
+          : await this.resolveMilestoneId(userId, dto.milestoneId, finalProjectId);
+    } else if (dto.projectId && existing.milestoneId) {
+      newMilestoneId = null;
     }
 
     // Enforce parent/child completion rule when transitioning to DONE via PATCH.
@@ -120,6 +139,7 @@ export class TaskService {
     }
     if (dto.projectId !== undefined) data.projectId = dto.projectId;
     if (dto.parentTaskId !== undefined) data.parentTaskId = dto.parentTaskId;
+    if (newMilestoneId !== undefined) data.milestoneId = newMilestoneId;
     if (dto.deadline !== undefined) {
       data.deadline = dto.deadline ? new Date(dto.deadline) : null;
     }
@@ -129,7 +149,12 @@ export class TaskService {
       data.priorityScore = impact * urgency;
     }
 
-    const task = await this.repo.update(id, data);
+    const task = await this.repo.update(
+      id,
+      data,
+      [existing.projectId],
+      existing.milestoneId ? [existing.milestoneId] : [],
+    );
     await this.audit.record({
       userId,
       action: 'task.update',
@@ -141,8 +166,8 @@ export class TaskService {
   }
 
   async remove(userId: string, id: string): Promise<{ id: string; deleted: true }> {
-    await this.assertTaskExists(id, userId);
-    await this.repo.softDelete(id);
+    const existing = await this.assertTaskExists(id, userId);
+    await this.repo.softDelete(id, existing.projectId, existing.milestoneId);
     await this.audit.record({
       userId,
       action: 'task.delete',
@@ -153,14 +178,16 @@ export class TaskService {
   }
 
   async complete(userId: string, id: string): Promise<TaskResponseDto> {
-    await this.assertTaskExists(id, userId);
+    const existing = await this.assertTaskExists(id, userId);
     await this.assertSubtasksComplete(id);
 
     // Business Rule doc 02: store completion time when a task moves to DONE.
-    const task = await this.repo.update(id, {
-      status: TaskStatus.DONE,
-      completedAt: new Date(),
-    });
+    const task = await this.repo.update(
+      id,
+      { status: TaskStatus.DONE, completedAt: new Date() },
+      [existing.projectId],
+      existing.milestoneId ? [existing.milestoneId] : [],
+    );
     await this.audit.record({
       userId,
       action: 'task.complete',
@@ -228,6 +255,24 @@ export class TaskService {
       );
     }
     return inbox;
+  }
+
+  /** Validates a milestone is owned by the user and belongs to `projectId`. */
+  private async resolveMilestoneId(
+    userId: string,
+    milestoneId: string,
+    projectId: string,
+  ): Promise<string> {
+    const milestone = await this.repo.findOwnedMilestone(milestoneId, userId);
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+    if (milestone.projectId !== projectId) {
+      throw new UnprocessableEntityException(
+        'Milestone must belong to the same project as the task',
+      );
+    }
+    return milestone.id;
   }
 
   private async assertTaskExists(id: string, userId: string) {

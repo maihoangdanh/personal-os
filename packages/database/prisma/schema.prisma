@@ -161,7 +161,8 @@ model Project {
   @@map("projects")
 }
 
-/// Checkpoint within a Project. Fields inferred (doc 10 lists the table, no columns).
+/// Checkpoint within a Project. Fields inferred (no column list in doc 02/03/10).
+/// `isCompleted` is backend-maintained per doc 02: set true when ALL its Tasks are DONE.
 model Milestone {
   id          String    @id @default(uuid()) @db.Uuid
   projectId   String    @db.Uuid
@@ -173,6 +174,7 @@ model Milestone {
   deletedAt   DateTime? @db.Timestamptz(6)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tasks   Task[]
 
   @@index([projectId])
   @@map("milestones")
@@ -195,6 +197,7 @@ model Task {
   id            String     @id @default(uuid()) @db.Uuid
   projectId     String     @db.Uuid
   parentTaskId  String?    @db.Uuid
+  milestoneId   String?    @db.Uuid // optional grouping under a Milestone (doc 02: "Task của Milestone")
   title         String     @db.VarChar(255)
   description   String?    @db.Text
   impact        Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
@@ -211,6 +214,7 @@ model Task {
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   parentTask  Task?        @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   subTasks    Task[]       @relation("TaskSubtasks")
+  milestone   Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   checklists  Checklist[]
   timeLogs    TimeLog[]
   taskTags    TaskTag[]
@@ -218,6 +222,7 @@ model Task {
 
   @@index([projectId])
   @@index([parentTaskId])
+  @@index([milestoneId])
   @@index([status])
   @@index([deadline])
   @@map("tasks")

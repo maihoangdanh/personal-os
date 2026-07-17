@@ -69,4 +69,9 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   parentTaskId?: string;
+
+  /** Optional grouping under a Milestone; must belong to the same project. */
+  @IsOptional()
+  @IsUUID()
+  milestoneId?: string;
 }

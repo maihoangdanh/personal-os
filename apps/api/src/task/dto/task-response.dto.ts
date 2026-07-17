@@ -8,6 +8,7 @@ export class TaskResponseDto {
   id!: string;
   projectId!: string;
   parentTaskId!: string | null;
+  milestoneId!: string | null;
   title!: string;
   description!: string | null;
   impact!: number;
@@ -30,6 +31,7 @@ export class TaskResponseDto {
       id: task.id,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      milestoneId: task.milestoneId,
       title: task.title,
       description: task.description,
       impact: task.impact,
