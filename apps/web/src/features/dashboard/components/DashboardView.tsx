@@ -13,6 +13,8 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useTodayTasks } from "../hooks/useTodayTasks";
 import { HabitStreakWidget } from "./HabitStreakWidget";
 import { UrgentImportantWidget } from "./UrgentImportantWidget";
+import { GoalProgressWidget } from "./GoalProgressWidget";
+import { ProjectsProgressWidget } from "./ProjectsProgressWidget";
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
@@ -102,6 +104,11 @@ export function DashboardView() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <UrgentImportantWidget />
         <HabitStreakWidget />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <GoalProgressWidget />
+        <ProjectsProgressWidget />
       </div>
     </div>
   );
