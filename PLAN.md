@@ -61,7 +61,7 @@ gốc trong PRD. Chú giải trạng thái:
 
 ---
 
-## Phase 2 — Goal & Project ✅ (trừ vài mục nhỏ)
+## Phase 2 — Goal & Project ✅ Hoàn tất (trừ Gantt rút gọn)
 
 - [x] ✅ Backend: Vision CRUD — verify e2e thật
 - [x] ✅ Backend: Goal CRUD + KPI + `GET /goals/{id}/progress` (`progress = min(100, current/target*100)`, `currentValue` nhập tay)
@@ -72,7 +72,7 @@ gốc trong PRD. Chú giải trạng thái:
 - [x] ✅ Frontend: Kanban board (6 cột TaskStatus, kéo-thả) — verify live: kéo DONE→DOING làm progress/milestone cập nhật đúng
 - [x] ✅ Frontend: Task form chọn Project/Milestone thật
 - [ ] 🔄 Timeline/Gantt — **rút gọn** thành danh sách Milestone sắp theo `dueDate` (không vẽ Gantt chart thật, quyết định có ghi chú trong `_workspace/10_frontend_goal-project.md`)
-- [ ] ❌ Dashboard: bổ sung Goal Progress + Projects progress widget — còn thiếu, làm được ngay không cần chờ Phase 3
+- [x] ✅ Dashboard: Goal Progress + Projects progress widget — verify live qua browser thật
 
 ## Phase 3 — Finance
 
@@ -119,8 +119,7 @@ Chưa bắt đầu — schema AI (migration `008_ai`) cũng chưa tạo vì chư
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-**Phase 1 + Phase 2 coi như xong** (trừ các mục hoãn có chủ đích + Gantt rút gọn). Tiếp theo:
+**Phase 1 + Phase 2 xong hoàn toàn** (trừ các mục hoãn có chủ đích + Gantt rút gọn). Tiếp theo:
 
-1. Bổ sung Goal Progress + Projects progress widget vào Dashboard (nhanh, không cần chờ Phase 3).
-2. Bắt đầu **Phase 3: Finance** — Wallet/Transaction/Budget/Investment/Asset CRUD + Report.
-3. Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
+1. Bắt đầu **Phase 3: Finance** — Wallet/Transaction/Budget/Investment/Asset CRUD + Report.
+2. Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
