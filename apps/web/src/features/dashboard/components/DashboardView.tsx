@@ -11,6 +11,8 @@ import { useCompleteTask } from "@/features/tasks/hooks/useTasks";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "@/features/tasks/lib/status";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useTodayTasks } from "../hooks/useTodayTasks";
+import { HabitStreakWidget } from "./HabitStreakWidget";
+import { UrgentImportantWidget } from "./UrgentImportantWidget";
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
@@ -96,6 +98,11 @@ export function DashboardView() {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <UrgentImportantWidget />
+        <HabitStreakWidget />
+      </div>
     </div>
   );
 }
