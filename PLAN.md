@@ -74,22 +74,24 @@ gốc trong PRD. Chú giải trạng thái:
 - [ ] 🔄 Timeline/Gantt — **rút gọn** thành danh sách Milestone sắp theo `dueDate` (không vẽ Gantt chart thật, quyết định có ghi chú trong `_workspace/10_frontend_goal-project.md`)
 - [x] ✅ Dashboard: Goal Progress + Projects progress widget — verify live qua browser thật
 
-## Phase 3 — Finance
+## Phase 3 — Finance 🔄 Backend xong, Frontend đang làm
 
-Schema đã có sẵn (`Wallet, Transaction, Budget, Investment, Asset` — migration 006), **chưa có
-module nào được build**.
+Migration 012 (`transferGroupId`) + 013 (`category`) đã bổ sung so với schema gốc, đã chốt công
+thức với người dùng (xem BACKLOG.md).
 
-- [ ] ❌ Backend: Wallet CRUD
-- [ ] ❌ Backend: Transaction CRUD (Income/Expense), cập nhật `Wallet.balance` trong transaction
-- [ ] ❌ Backend: Budget CRUD + cảnh báo vượt ngân sách
-- [ ] ❌ Backend: Investment CRUD (BTC/ETH/Stocks/Gold/Saving)
-- [ ] ❌ Backend: Asset CRUD (Cash/Bank/Crypto/Real Estate/Vehicle)
-- [ ] ❌ Backend: Report tổng hợp tháng (Income/Expense/Profit/Saving Rate)
-- [ ] ❌ Frontend: Income/Expense entry, danh mục
-- [ ] ❌ Frontend: Investment dashboard
-- [ ] ❌ Frontend: Asset overview
-- [ ] ❌ Frontend: Report + biểu đồ (Recharts/ECharts — đã chọn trong System Architecture)
-- [ ] ❌ Dashboard: bổ sung Net Worth + Investment % + Finance pie chart
+- [x] ✅ Backend: Wallet CRUD, `balance` tự tính lại từ tổng trong transaction — verify e2e thật
+- [x] ✅ Backend: Transaction CRUD (Income/Expense) + Transfer riêng (2 dòng cùng `transferGroupId`, atomic) — 71 unit + 25 e2e pass
+- [x] ✅ Backend: Budget CRUD theo category (case-insensitive) + `GET /budgets/{id}/status` (actual vs ngân sách)
+- [x] ✅ Backend: Investment CRUD (CRUD thuần, không tự trừ ví — xem BACKLOG.md)
+- [x] ✅ Backend: Asset CRUD
+- [x] ✅ Backend: Report runtime (`GET /finance/report?month`: Income/Expense/Profit/Saving Rate) + `GET /finance/net-worth` — verify bằng số liệu cụ thể (income 1000+expense 300+transfer 200 → report đúng 1000/300/700, không đếm Transfer trùng)
+- [ ] 🔄 Frontend: Wallet list + form — đang làm (types/service/hook/WalletFormDialog/TransactionFormDialog/WalletsTab đã có, chưa verify live)
+- [ ] ❌ Frontend: Transaction list + form Income/Expense + form Transfer riêng
+- [ ] ❌ Frontend: Budget progress bar (actual vs ngân sách)
+- [ ] ❌ Frontend: Investment CRUD UI
+- [ ] ❌ Frontend: Asset CRUD UI
+- [ ] ❌ Frontend: Report page (Income/Expense/Profit/Saving Rate theo tháng + Net Worth)
+- [ ] ❌ Dashboard: widget Net Worth tóm tắt (không bắt buộc, làm nếu còn thời gian)
 
 ## Phase 4 — Intelligence (AI)
 
@@ -119,7 +121,9 @@ Chưa bắt đầu — schema AI (migration `008_ai`) cũng chưa tạo vì chư
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-**Phase 1 + Phase 2 xong hoàn toàn** (trừ các mục hoãn có chủ đích + Gantt rút gọn). Tiếp theo:
+**Phase 1 + Phase 2 xong hoàn toàn**, **Phase 3 backend xong, frontend đang làm dở** (commit
+`95458f5` là checkpoint WIP, chưa verify live). Tiếp theo:
 
-1. Bắt đầu **Phase 3: Finance** — Wallet/Transaction/Budget/Investment/Asset CRUD + Report.
+1. Hoàn tất frontend Finance (Wallet/Transaction/Transfer/Budget/Investment/Asset/Report), verify
+   live qua browser thật.
 2. Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
