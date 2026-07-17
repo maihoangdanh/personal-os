@@ -2,20 +2,26 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AssetModule } from './asset/asset.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BudgetModule } from './budget/budget.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
+import { FinanceModule } from './finance/finance.module';
 import { GoalModule } from './goal/goal.module';
 import { HabitModule } from './habit/habit.module';
 import { HealthController } from './health/health.controller';
+import { InvestmentModule } from './investment/investment.module';
 import { KpiModule } from './kpi/kpi.module';
 import { MilestoneModule } from './milestone/milestone.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProjectModule } from './project/project.module';
 import { TaskModule } from './task/task.module';
+import { TransactionModule } from './transaction/transaction.module';
 import { VisionModule } from './vision/vision.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -32,6 +38,12 @@ import { VisionModule } from './vision/vision.module';
     KpiModule,
     ProjectModule,
     MilestoneModule,
+    WalletModule,
+    TransactionModule,
+    BudgetModule,
+    InvestmentModule,
+    AssetModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
   providers: [
