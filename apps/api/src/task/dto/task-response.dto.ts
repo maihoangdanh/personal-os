@@ -1,7 +1,9 @@
 import { Task, TaskStatus } from '@personal-os/database';
 
-/** Task enriched with its (at most one) open TimeLog for the timer flags. */
-type TaskWithTimer = Task & { timeLogs?: { id: string }[] };
+/** Task enriched with its TimeLogs (minimal fields) for the timer + spent fields. */
+type TaskWithTimer = Task & {
+  timeLogs?: { id: string; endTime: Date | null; durationMinutes: number | null }[];
+};
 
 /** Exact shape returned for a Task. Copy this when building the frontend type. */
 export class TaskResponseDto {
@@ -22,11 +24,18 @@ export class TaskResponseDto {
   isTimerRunning!: boolean;
   /** Id of the running TimeLog, or null. Use it to call /timer/stop. */
   activeTimeLogId!: string | null;
+  /** Σ durationMinutes of stopped TimeLogs (running leg excluded); 0 when none. */
+  spentMinute!: number;
   createdAt!: string;
   updatedAt!: string;
 
   static from(task: TaskWithTimer): TaskResponseDto {
-    const activeTimeLog = task.timeLogs?.[0] ?? null;
+    const logs = task.timeLogs ?? [];
+    const activeTimeLog = logs.find((l) => l.endTime === null) ?? null;
+    const spentMinute = logs.reduce(
+      (sum, l) => sum + (l.durationMinutes ?? 0),
+      0,
+    );
     return {
       id: task.id,
       projectId: task.projectId,
@@ -43,6 +52,7 @@ export class TaskResponseDto {
       completedAt: task.completedAt ? task.completedAt.toISOString() : null,
       isTimerRunning: activeTimeLog !== null,
       activeTimeLogId: activeTimeLog?.id ?? null,
+      spentMinute,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
     };

@@ -17,20 +17,20 @@ function ownedByUser(userId: string): Prisma.TaskWhereInput {
 }
 
 /**
- * Include the single open TimeLog (endTime null) so responses can expose
- * isTimerRunning / activeTimeLogId without an extra round-trip.
+ * Include the task's TimeLogs (minimal fields) so responses can expose, in one
+ * query: isTimerRunning + activeTimeLogId (the open leg, endTime null) and
+ * spentMinute (Σ durationMinutes of stopped legs — derived at runtime, no column).
  */
-const withActiveTimer = {
+const withTimeLogs = {
   timeLogs: {
-    where: { endTime: null, deletedAt: null },
-    select: { id: true },
+    where: { deletedAt: null },
+    select: { id: true, endTime: true, durationMinutes: true },
     orderBy: { startTime: 'desc' },
-    take: 1,
   },
 } satisfies Prisma.TaskInclude;
 
 export type TaskWithTimer = Prisma.TaskGetPayload<{
-  include: typeof withActiveTimer;
+  include: typeof withTimeLogs;
 }>;
 
 export interface TaskListFilter {
@@ -91,7 +91,7 @@ export class TaskRepository {
    */
   create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithTimer> {
     return prisma.$transaction(async (tx) => {
-      const task = await tx.task.create({ data, include: withActiveTimer });
+      const task = await tx.task.create({ data, include: withTimeLogs });
       await persistProjectProgress(tx, task.projectId);
       if (task.milestoneId) {
         await persistMilestoneCompletion(tx, task.milestoneId);
@@ -103,7 +103,7 @@ export class TaskRepository {
   findByIdScoped(id: string, userId: string): Promise<TaskWithTimer | null> {
     return prisma.task.findFirst({
       where: { id, deletedAt: null, ...ownedByUser(userId) },
-      include: withActiveTimer,
+      include: withTimeLogs,
     });
   }
 
@@ -140,7 +140,7 @@ export class TaskRepository {
         orderBy: { [filter.sortBy]: filter.sortOrder },
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
-        include: withActiveTimer,
+        include: withTimeLogs,
       }),
       prisma.task.count({ where }),
     ]);
@@ -163,7 +163,7 @@ export class TaskRepository {
       const task = await tx.task.update({
         where: { id },
         data,
-        include: withActiveTimer,
+        include: withTimeLogs,
       });
       const projectIds = new Set<string>([task.projectId, ...affectedProjectIds]);
       const milestoneIds = new Set<string>([

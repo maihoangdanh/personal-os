@@ -172,21 +172,29 @@ describe('TaskService', () => {
     });
   });
 
-  describe('timer flags on TaskResponseDto', () => {
-    it('exposes isTimerRunning + activeTimeLogId when an open TimeLog exists', async () => {
+  describe('timer flags + spentMinute on TaskResponseDto', () => {
+    it('exposes isTimerRunning + activeTimeLogId from the open TimeLog, and sums spentMinute', async () => {
       repo.findByIdScoped.mockResolvedValue(
-        makeTask({ timeLogs: [{ id: 'log-9' }] }),
+        makeTask({
+          timeLogs: [
+            { id: 'log-open', endTime: null, durationMinutes: null }, // running
+            { id: 'log-1', endTime: new Date(), durationMinutes: 30 },
+            { id: 'log-2', endTime: new Date(), durationMinutes: 15 },
+          ],
+        }),
       );
       const res = await service.get(userId, 'task-1');
       expect(res.isTimerRunning).toBe(true);
-      expect(res.activeTimeLogId).toBe('log-9');
+      expect(res.activeTimeLogId).toBe('log-open');
+      expect(res.spentMinute).toBe(45); // 30 + 15, running leg excluded
     });
 
-    it('reports no running timer when timeLogs is empty', async () => {
+    it('reports no running timer and spentMinute 0 when timeLogs is empty', async () => {
       repo.findByIdScoped.mockResolvedValue(makeTask({ timeLogs: [] }));
       const res = await service.get(userId, 'task-1');
       expect(res.isTimerRunning).toBe(false);
       expect(res.activeTimeLogId).toBeNull();
+      expect(res.spentMinute).toBe(0);
     });
   });
 

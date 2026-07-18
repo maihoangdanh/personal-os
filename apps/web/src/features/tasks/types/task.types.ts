@@ -32,6 +32,9 @@ export interface Task {
   urgency: number; // 1..5
   priorityScore: number | null; // impact × urgency (server tính)
   estimateMinute: number | null; // phút ước lượng >= 0
+  // spentMinute: tổng durationMinutes của TimeLog (suy runtime, không lưu cột). Optional cho tới khi
+  // backend ship field (đã gửi yêu cầu backend-engineer). Khi có: hiển thị "Đã làm: X phút".
+  spentMinute?: number | null;
   status: TaskStatus;
   deadline: string | null; // ISO
   completedAt: string | null; // ISO; set khi DONE

@@ -109,6 +109,17 @@ function TaskRow({
             {task.description}
           </div>
         )}
+        {(task.estimateMinute != null || task.spentMinute != null) && (
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {task.estimateMinute != null && <span>Ước lượng: {task.estimateMinute} phút</span>}
+            {task.estimateMinute != null && task.spentMinute != null && <span> · </span>}
+            {task.spentMinute != null && (
+              <span>
+                Đã làm: <span className="font-medium text-foreground">{task.spentMinute} phút</span>
+              </span>
+            )}
+          </div>
+        )}
       </td>
       <td className="px-3 py-2">
         {/* Đổi status tự do (backend không enforce transition graph). */}
