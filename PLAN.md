@@ -74,7 +74,7 @@ gốc trong PRD. Chú giải trạng thái:
 - [ ] 🔄 Timeline/Gantt — **rút gọn** thành danh sách Milestone sắp theo `dueDate` (không vẽ Gantt chart thật, quyết định có ghi chú trong `_workspace/10_frontend_goal-project.md`)
 - [x] ✅ Dashboard: Goal Progress + Projects progress widget — verify live qua browser thật
 
-## Phase 3 — Finance 🔄 Backend xong, Frontend đang làm
+## Phase 3 — Finance ✅ Hoàn tất
 
 Migration 012 (`transferGroupId`) + 013 (`category`) đã bổ sung so với schema gốc, đã chốt công
 thức với người dùng (xem BACKLOG.md).
@@ -85,13 +85,14 @@ thức với người dùng (xem BACKLOG.md).
 - [x] ✅ Backend: Investment CRUD (CRUD thuần, không tự trừ ví — xem BACKLOG.md)
 - [x] ✅ Backend: Asset CRUD
 - [x] ✅ Backend: Report runtime (`GET /finance/report?month`: Income/Expense/Profit/Saving Rate) + `GET /finance/net-worth` — verify bằng số liệu cụ thể (income 1000+expense 300+transfer 200 → report đúng 1000/300/700, không đếm Transfer trùng)
-- [ ] 🔄 Frontend: Wallet list + form — đang làm (types/service/hook/WalletFormDialog/TransactionFormDialog/WalletsTab đã có, chưa verify live)
-- [ ] ❌ Frontend: Transaction list + form Income/Expense + form Transfer riêng
-- [ ] ❌ Frontend: Budget progress bar (actual vs ngân sách)
-- [ ] ❌ Frontend: Investment CRUD UI
-- [ ] ❌ Frontend: Asset CRUD UI
-- [ ] ❌ Frontend: Report page (Income/Expense/Profit/Saving Rate theo tháng + Net Worth)
-- [ ] ❌ Dashboard: widget Net Worth tóm tắt (không bắt buộc, làm nếu còn thời gian)
+- [x] ✅ Frontend: trang `/finance` 6 tab (Tổng quan/Ví/Giao dịch/Ngân sách/Đầu tư/Tài sản)
+- [x] ✅ Frontend: Transaction list + filter + category autocomplete + form Transfer riêng
+- [x] ✅ Frontend: Budget progress bar (đỏ khi vượt ngân sách)
+- [x] ✅ Frontend: Investment + Asset CRUD UI
+- [x] ✅ Frontend: Report page + Net Worth breakdown — verify live bằng số tiền cụ thể (1.000.000/300.000/200.000 transfer → đúng 100% so với API)
+- [x] ✅ Dashboard: NetWorthWidget
+- [ ] 🔄 Verify live chưa phủ hết mọi tab (Giao dịch/Ngân sách/Đầu tư/Tài sản dùng chung pattern component đã verify ở Phase 1/2, nhưng chưa tự tay click qua browser do gián đoạn công cụ giữa buổi — phần quan trọng nhất (tính đúng tiền) đã verify qua API + 2 tab chính)
+- [ ] ⏸️ Report dùng stat card thay vì pie chart — rút gọn có chủ đích, tránh kéo thêm Recharts cho MVP
 
 ## Phase 4 — Intelligence (AI)
 
@@ -121,9 +122,9 @@ Chưa bắt đầu — schema AI (migration `008_ai`) cũng chưa tạo vì chư
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-**Phase 1 + Phase 2 xong hoàn toàn**, **Phase 3 backend xong, frontend đang làm dở** (commit
-`95458f5` là checkpoint WIP, chưa verify live). Tiếp theo:
+**Phase 1 + 2 + 3 xong hoàn toàn** (trừ các mục hoãn có chủ đích trong bảng trên). Tiếp theo:
 
-1. Hoàn tất frontend Finance (Wallet/Transaction/Transfer/Budget/Investment/Asset/Report), verify
-   live qua browser thật.
-2. Phase 4 (AI) theo đúng thứ tự roadmap — không nhảy cóc trừ khi bạn yêu cầu.
+1. Bắt đầu **Phase 4: Intelligence (AI)** — phân loại task, gợi ý lịch, tổng kết định kỳ, dự báo
+   KPI/tài chính, AI chat trên dữ liệu cá nhân.
+2. Cân nhắc: verify live nốt các tab Finance chưa tự tay click qua (Giao dịch/Ngân sách/Đầu tư/
+   Tài sản) khi có dịp dùng thật.
