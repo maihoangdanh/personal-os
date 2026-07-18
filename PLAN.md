@@ -31,7 +31,7 @@ gốc trong PRD. Chú giải trạng thái:
 ### Reminder (Notification)
 - [x] ✅ Backend: CRUD, đánh dấu đã đọc, snooze, cron nội bộ (`@nestjs/schedule`, không Redis) quét mỗi phút đánh dấu `sentAt` — verify qua smoke test thật
 - [x] ✅ Frontend: NotificationsView, ReminderFormDialog, SnoozeDialog — build/typecheck sạch, **chưa tự tay test qua browser thật**
-- [ ] ⏸️ Gửi thật qua Telegram/email/push — cần Telegram Bot Token, chưa có. *(Xem BACKLOG.md)*
+- [x] ✅ Gửi thật qua Telegram Bot API — verify bằng cron thật + Telegram thật, chỉ mark `sentAt` khi gửi thành công (101/101 unit test pass)
 
 ### Calendar
 - [x] ✅ Backend: CRUD CalendarEvent, single-occurrence — verify qua smoke test thật

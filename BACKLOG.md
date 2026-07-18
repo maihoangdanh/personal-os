@@ -3,16 +3,13 @@
 Không phải bug, không phải thiếu sót — đây là các quyết định **chủ động hoãn lại** trong lúc build
 Phase 1, ghi lại để không quên và biết chỗ nào cần quay lại sửa/bổ sung.
 
-## Reminder — gửi Telegram thật
+## Reminder — gửi Telegram thật ✅ Đã xong (2026-07-18)
 
-- **Hiện trạng**: model `Notification` đã có `scheduledFor`/`sentAt`/`snoozedUntil` (migration 010).
-  Cơ chế bắn đúng giờ dự kiến dùng cron polling trong NestJS (`@nestjs/schedule`, không cần Redis)
-  — quét `scheduledFor <= now AND sentAt IS NULL` mỗi phút.
-- **Hoãn**: tích hợp gửi thật qua Telegram Bot API. Cần **Telegram Bot Token** (tạo qua @BotFather)
-  trước khi làm được — người dùng chưa cung cấp, để sau.
-- **Khi làm lại**: hỏi người dùng token, thêm `TELEGRAM_BOT_TOKEN` vào `.env` apps/api, wire vào
-  cron job đã build. Phase 1 tạm thời reminder chỉ hiển thị trong app (badge/list), không push ra
-  ngoài.
+- **Đã hoàn tất**: `notification/telegram-client.ts` gọi Telegram Bot API thật. Cron mỗi phút quét
+  `scheduledFor <= now AND sentAt IS NULL` (chỉ `type=REMINDER`), gửi Telegram trước, **chỉ mark
+  `sentAt` khi Telegram xác nhận `ok:true`** — gửi lỗi thì để cron lần sau tự retry, không ăn gian.
+- Verify thật: cron thật + Telegram thật, tin nhắn đã tới chat người dùng, 101/101 unit test pass.
+- Credential (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`) lưu trong `apps/api/.env`, gitignored.
 
 ## Auth — Session/refresh-token store
 
