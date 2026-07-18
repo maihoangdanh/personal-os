@@ -14,6 +14,7 @@ import { GoalModule } from './goal/goal.module';
 import { HabitModule } from './habit/habit.module';
 import { HealthController } from './health/health.controller';
 import { InvestmentModule } from './investment/investment.module';
+import { JournalModule } from './journal/journal.module';
 import { KpiModule } from './kpi/kpi.module';
 import { MilestoneModule } from './milestone/milestone.module';
 import { NotificationModule } from './notification/notification.module';
@@ -44,6 +45,7 @@ import { WalletModule } from './wallet/wallet.module';
     InvestmentModule,
     AssetModule,
     FinanceModule,
+    JournalModule,
   ],
   controllers: [HealthController],
   providers: [
