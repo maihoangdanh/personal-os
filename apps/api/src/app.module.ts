@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AiModule } from './ai/ai.module';
 import { AssetModule } from './asset/asset.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -46,6 +47,7 @@ import { WalletModule } from './wallet/wallet.module';
     AssetModule,
     FinanceModule,
     JournalModule,
+    AiModule,
   ],
   controllers: [HealthController],
   providers: [
