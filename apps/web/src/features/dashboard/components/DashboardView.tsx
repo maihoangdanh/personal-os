@@ -15,6 +15,7 @@ import { HabitStreakWidget } from "./HabitStreakWidget";
 import { UrgentImportantWidget } from "./UrgentImportantWidget";
 import { GoalProgressWidget } from "./GoalProgressWidget";
 import { ProjectsProgressWidget } from "./ProjectsProgressWidget";
+import { NetWorthWidget } from "./NetWorthWidget";
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
@@ -110,6 +111,8 @@ export function DashboardView() {
         <GoalProgressWidget />
         <ProjectsProgressWidget />
       </div>
+
+      <NetWorthWidget />
     </div>
   );
 }

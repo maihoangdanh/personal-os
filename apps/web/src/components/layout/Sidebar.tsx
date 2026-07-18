@@ -11,6 +11,7 @@ import {
   LogOut,
   Repeat,
   Target,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/reminders", label: "Reminders", icon: Bell, badge: "unread" as const },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
