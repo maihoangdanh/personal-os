@@ -117,7 +117,7 @@ không commit).
 
 | Việc | Lý do hoãn | Khi nào quay lại |
 |------|-----------|------------------|
-| Gửi Reminder qua Telegram | Chưa có Bot Token | Khi bạn tạo bot qua @BotFather |
+| ~~Gửi Reminder qua Telegram~~ | ✅ Đã xong 2026-07-18 | — |
 | Session/refresh-token store | MVP chưa cần revoke token | Giai đoạn "auth-hardening" trước deploy production |
 | Calendar recurrence | Không tài liệu nào yêu cầu | Nếu phát sinh nhu cầu (sự kiện lặp) |
 | Token localStorage → httpOnly cookie | Không cần thiết khi chạy local 1 mình | Trước khi deploy production thật |
