@@ -54,8 +54,11 @@ model User {
   budgets        Budget[]
   investments    Investment[]
   assets         Asset[]
-  notifications  Notification[]
-  activityLogs   ActivityLog[]
+  notifications   Notification[]
+  activityLogs    ActivityLog[]
+  aiConversations AiConversation[]
+  aiSummaries     AiSummary[]
+  journals        Journal[]
 
   @@index([workspaceId])
   @@index([email])
@@ -555,4 +558,113 @@ model ActivityLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@map("activity_logs")
+}
+
+// ============================================================
+// Module 014_ai (Phase 4 — Intelligence)
+// ------------------------------------------------------------
+// doc 07 is conceptual only (no field-level schema). Only two things need
+// persistence: AI Chat history and the LLM-generated periodic summaries.
+// The other AI modules (Smart Planning, Priority Scoring, Finance Insight,
+// Goal Prediction, Habit Coach) are RUNTIME suggestions over existing data —
+// no table; accepted suggestions write to existing models (Task/CalendarEvent).
+// All fields here are inferred (doc 07 gives none) — kept minimal.
+// ============================================================
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+/// AI Summary type = doc 07 modules Daily Brief / Weekly Review / Monthly Review.
+enum AiSummaryType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+/// One AI Chat thread owned by a User (doc 07 §4 "AI Chat").
+model AiConversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  title     String?   @db.VarChar(255) // first question or auto-generated label
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  messages AiMessage[]
+
+  @@index([userId])
+  @@map("ai_conversations")
+}
+
+/// One message in an AI Chat thread. `metadata` (Json) holds model name, token
+/// usage, tool calls, confirmation state, etc. — flexible, not fixed columns.
+model AiMessage {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @db.Uuid
+  role           AiMessageRole
+  content        String        @db.Text
+  metadata       Json?
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?     @db.Timestamptz(6)
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+/// Stored LLM-generated periodic summary (Daily Brief / Weekly / Monthly Review).
+/// STORED (not runtime) because the output is non-deterministic + token-costly and
+/// is a point-in-time artifact — unlike the deterministic finance Monthly Report.
+/// `content` = the generated text; `metadata` = the metrics behind it (hours, tasks
+/// done, goal/project progress, spend, habit score — doc 07 §7/§8).
+model AiSummary {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @db.Uuid
+  type        AiSummaryType
+  periodStart DateTime      @db.Date
+  periodEnd   DateTime      @db.Date
+  content     String        @db.Text
+  metadata    Json?
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?     @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, type, periodStart]) // one summary per user per type per period (supports upsert on regenerate)
+  @@index([userId])
+  @@index([type])
+  @@map("ai_summaries")
+}
+
+// ============================================================
+// Module 015_journal (Daily > Journal) — late addition to Phase 1
+// ------------------------------------------------------------
+// Không có spec field-level ở bất kỳ doc nào (doc 01 PRD không có mục Journal;
+// chỉ doc 07 §2 liệt kê "Journal" là nguồn dữ liệu AI). Fields inferred, tối thiểu.
+// One entry per day (@@unique[userId,date]) — "Daily Journal", theo tiền lệ HabitLog.
+// mood = String? (không enum) để tránh khoá cứng thang mood chưa được định nghĩa.
+// ============================================================
+
+model Journal {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  date      DateTime  @db.Date
+  content   String    @db.Text
+  mood      String?   @db.VarChar(50) // free-text (e.g. "great"/"good"/"neutral"/"bad"); app owns the set
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, date]) // one journal entry per user per day
+  @@index([userId])
+  @@map("journals")
 }
