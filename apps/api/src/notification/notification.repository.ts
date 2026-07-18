@@ -58,22 +58,27 @@ export class NotificationRepository {
 
   // ---- Cron polling (all users) ----
 
-  /** Reminders whose time has come and that have not been "sent" yet. */
-  findDue(now: Date): Promise<{ id: string; userId: string; title: string }[]> {
+  /**
+   * Due REMINDER notifications not yet delivered. Only type=REMINDER is delivered
+   * to Telegram (other types stay in-app only). Includes title+message for the
+   * message body.
+   */
+  findDue(
+    now: Date,
+  ): Promise<{ id: string; userId: string; title: string; message: string | null }[]> {
     return prisma.notification.findMany({
       where: {
+        type: NotificationType.REMINDER,
         scheduledFor: { lte: now },
         sentAt: null,
         deletedAt: null,
       },
-      select: { id: true, userId: true, title: true },
+      select: { id: true, userId: true, title: true, message: true },
     });
   }
 
-  markManySent(ids: string[], sentAt: Date): Promise<Prisma.BatchPayload> {
-    return prisma.notification.updateMany({
-      where: { id: { in: ids } },
-      data: { sentAt },
-    });
+  /** Mark a single reminder delivered — called only after a successful send. */
+  markSent(id: string, sentAt: Date): Promise<Notification> {
+    return prisma.notification.update({ where: { id }, data: { sentAt } });
   }
 }

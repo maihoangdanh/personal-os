@@ -6,6 +6,7 @@ import { NotificationResponseDto } from './dto/notification-response.dto';
 import { QueryNotificationDto } from './dto/query-notification.dto';
 import { SnoozeNotificationDto } from './dto/snooze-notification.dto';
 import { NotificationRepository } from './notification.repository';
+import { TelegramClient } from './telegram-client';
 
 @Injectable()
 export class NotificationService {
@@ -14,6 +15,7 @@ export class NotificationService {
   constructor(
     private readonly repo: NotificationRepository,
     private readonly audit: AuditService,
+    private readonly telegram: TelegramClient,
   ) {}
 
   async create(
@@ -119,23 +121,46 @@ export class NotificationService {
   }
 
   /**
-   * Internal cron step (see NotificationScheduler). Marks every due reminder
-   * (scheduledFor <= now, not yet sent) as sent. Does NOT send Telegram/email —
-   * "sent" here means "surfaced in the in-app list/badge" (Telegram deferred,
-   * per BACKLOG.md). Returns how many rows were marked. Kept as a plain method
-   * so it is unit-testable without the scheduler.
+   * Internal cron step (see NotificationScheduler). For each due REMINDER
+   * (scheduledFor <= now, not yet sent) it delivers a real Telegram message,
+   * then marks `sentAt` ONLY on success — a failed send is left un-sent so the
+   * next cron tick retries (never fake "sent"). Each reminder is isolated in its
+   * own try/catch so one failure can't abort the batch. Returns how many were
+   * actually delivered. Plain method so it is unit-testable without the scheduler.
    */
   async dispatchDueReminders(now: Date = new Date()): Promise<number> {
     const due = await this.repo.findDue(now);
     if (due.length === 0) {
       return 0;
     }
-    await this.repo.markManySent(
-      due.map((d) => d.id),
-      now,
-    );
-    this.logger.log(`Marked ${due.length} due reminder(s) as sent`);
-    return due.length;
+
+    let delivered = 0;
+    for (const reminder of due) {
+      try {
+        const text = reminder.message
+          ? `${reminder.title}\n${reminder.message}`
+          : reminder.title;
+        const sent = await this.telegram.sendMessage(text);
+        if (!sent) {
+          // Not configured — leave un-sent so it delivers once configured.
+          continue;
+        }
+        await this.repo.markSent(reminder.id, now);
+        delivered += 1;
+      } catch (err) {
+        this.logger.error(
+          `Failed to deliver reminder ${reminder.id}: ${(err as Error).message}`,
+        );
+        // Do NOT mark sent — retry on the next tick.
+      }
+    }
+
+    if (delivered > 0) {
+      this.logger.log(
+        `Delivered ${delivered}/${due.length} due reminder(s) via Telegram`,
+      );
+    }
+    return delivered;
   }
 
   private async assertExists(id: string, userId: string) {

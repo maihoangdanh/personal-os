@@ -3,10 +3,9 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationService } from './notification.service';
 
 /**
- * Internal reminder poller. Runs every minute and asks the service to mark any
- * due reminders as sent. No external delivery (Telegram/email) in Phase 1 — this
- * only keeps the in-app list/badge accurate. Logs only when it did work, to
- * avoid spamming the console every idle minute.
+ * Internal reminder poller. Runs every minute and asks the service to deliver
+ * any due REMINDER via Telegram (marking sentAt only on a successful send).
+ * Logs only when it did work, to avoid spamming the console every idle minute.
  */
 @Injectable()
 export class NotificationScheduler {

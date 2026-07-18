@@ -25,6 +25,7 @@ describe('NotificationService', () => {
   let service: NotificationService;
   let repo: Record<string, jest.Mock>;
   let audit: { record: jest.Mock };
+  let telegram: { sendMessage: jest.Mock; isConfigured: jest.Mock };
   const userId = 'user-1';
 
   beforeEach(() => {
@@ -36,10 +37,14 @@ describe('NotificationService', () => {
       softDelete: jest.fn(),
       countUnread: jest.fn(),
       findDue: jest.fn(),
-      markManySent: jest.fn(),
+      markSent: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
-    service = new NotificationService(repo as any, audit as any);
+    telegram = {
+      sendMessage: jest.fn().mockResolvedValue(true),
+      isConfigured: jest.fn().mockReturnValue(true),
+    };
+    service = new NotificationService(repo as any, audit as any, telegram as any);
   });
 
   describe('create', () => {
@@ -100,26 +105,56 @@ describe('NotificationService', () => {
   });
 
   describe('dispatchDueReminders (cron logic)', () => {
-    it('marks due reminders as sent and returns the count', async () => {
+    it('delivers each due reminder via Telegram and marks it sent', async () => {
       const now = new Date('2026-07-16T09:00:00Z');
       repo.findDue.mockResolvedValue([
-        { id: 'a', userId, title: 'A' },
-        { id: 'b', userId, title: 'B' },
+        { id: 'a', userId, title: 'A', message: null },
+        { id: 'b', userId, title: 'B', message: 'body' },
       ]);
-      repo.markManySent.mockResolvedValue({ count: 2 });
+      repo.markSent.mockResolvedValue({});
 
-      const processed = await service.dispatchDueReminders(now);
+      const delivered = await service.dispatchDueReminders(now);
 
       expect(repo.findDue).toHaveBeenCalledWith(now);
-      expect(repo.markManySent).toHaveBeenCalledWith(['a', 'b'], now);
-      expect(processed).toBe(2);
+      expect(telegram.sendMessage).toHaveBeenCalledWith('A'); // no message
+      expect(telegram.sendMessage).toHaveBeenCalledWith('B\nbody'); // title + message
+      expect(repo.markSent).toHaveBeenCalledWith('a', now);
+      expect(repo.markSent).toHaveBeenCalledWith('b', now);
+      expect(delivered).toBe(2);
+    });
+
+    it('does NOT mark sent when the Telegram send fails (retry next tick)', async () => {
+      repo.findDue.mockResolvedValue([{ id: 'a', userId, title: 'A', message: null }]);
+      telegram.sendMessage.mockRejectedValue(new Error('network down'));
+
+      const delivered = await service.dispatchDueReminders(new Date());
+
+      expect(repo.markSent).not.toHaveBeenCalled();
+      expect(delivered).toBe(0);
+    });
+
+    it('one failure does not abort delivery of the others', async () => {
+      repo.findDue.mockResolvedValue([
+        { id: 'a', userId, title: 'A', message: null },
+        { id: 'b', userId, title: 'B', message: null },
+      ]);
+      telegram.sendMessage
+        .mockRejectedValueOnce(new Error('boom')) // a fails
+        .mockResolvedValueOnce(true); // b succeeds
+      repo.markSent.mockResolvedValue({});
+
+      const delivered = await service.dispatchDueReminders(new Date());
+
+      expect(repo.markSent).toHaveBeenCalledTimes(1);
+      expect(repo.markSent).toHaveBeenCalledWith('b', expect.any(Date));
+      expect(delivered).toBe(1);
     });
 
     it('does nothing when there are no due reminders', async () => {
       repo.findDue.mockResolvedValue([]);
-      const processed = await service.dispatchDueReminders(new Date());
-      expect(repo.markManySent).not.toHaveBeenCalled();
-      expect(processed).toBe(0);
+      const delivered = await service.dispatchDueReminders(new Date());
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
+      expect(delivered).toBe(0);
     });
   });
 });
