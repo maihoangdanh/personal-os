@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Sparkles } from "lucide-react";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useProjects, useMilestones } from "@/features/projects/hooks/useProjects";
+import { useClassifyTask } from "@/features/ai/hooks/useAi";
 import { useCreateTask, useUpdateTask } from "../hooks/useTasks";
 import { STATUS_LABELS } from "../lib/status";
 import {
@@ -69,9 +71,28 @@ export function TaskFormDialog({
   // Milestone của project đang chọn (constraint: milestone phải cùng project).
   const { data: milestones } = useMilestones(form.projectId);
 
+  // AI gợi ý Eisenhower — chỉ điền sẵn impact/urgency, KHÔNG tự submit (user vẫn sửa tay).
+  const classifyMut = useClassifyTask();
+  const [aiReason, setAiReason] = React.useState<string | null>(null);
+  async function suggestWithAi() {
+    setAiReason(null);
+    if (!form.title.trim()) return;
+    try {
+      const r = await classifyMut.mutateAsync({
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+      });
+      setForm((f) => ({ ...f, impact: r.impact, urgency: r.urgency }));
+      setAiReason(r.reason ?? `Gợi ý: ${r.quadrant} (impact ${r.impact} × urgency ${r.urgency})`);
+    } catch (err) {
+      setAiReason(extractApiErrorMessage(err, "AI không phản hồi, thử lại"));
+    }
+  }
+
   React.useEffect(() => {
     if (!open) return;
     setError(null);
+    setAiReason(null);
     if (task) {
       setForm({
         title: task.title,
@@ -169,6 +190,26 @@ export function TaskFormDialog({
             placeholder="Chi tiết task (không bắt buộc)"
           />
         </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Độ ưu tiên</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!form.title.trim() || classifyMut.isPending}
+            onClick={suggestWithAi}
+            title="AI gợi ý impact/urgency từ tiêu đề + mô tả"
+          >
+            <Sparkles className="h-4 w-4" />
+            {classifyMut.isPending ? "AI đang phân tích..." : "Gợi ý AI"}
+          </Button>
+        </div>
+        {aiReason && (
+          <p className="rounded-md bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            💡 {aiReason} <span className="italic">(gợi ý — bạn có thể chỉnh lại)</span>
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">

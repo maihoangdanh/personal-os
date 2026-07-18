@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  Bot,
   CalendarDays,
   FolderKanban,
   LayoutDashboard,
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/reminders", label: "Reminders", icon: Bell, badge: "unread" as const },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/ai", label: "AI Assistant", icon: Bot },
 ];
 
 export function Sidebar() {
