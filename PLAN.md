@@ -94,7 +94,7 @@ thức với người dùng (xem BACKLOG.md).
 - [ ] 🔄 Verify live chưa phủ hết mọi tab (Giao dịch/Ngân sách/Đầu tư/Tài sản dùng chung pattern component đã verify ở Phase 1/2, nhưng chưa tự tay click qua browser do gián đoạn công cụ giữa buổi — phần quan trọng nhất (tính đúng tiền) đã verify qua API + 2 tab chính)
 - [ ] ⏸️ Report dùng stat card thay vì pie chart — rút gọn có chủ đích, tránh kéo thêm Recharts cho MVP
 
-## Phase 4 — Intelligence (AI) 🔄 Backend xong, Frontend đang làm
+## Phase 4 — Intelligence (AI) ✅ Hoàn tất
 
 Migration 014 (`AiConversation/AiMessage/AiSummary`) + 015 (`Journal`, bổ sung Phase 1 bị bỏ sót).
 LLM: custom router OpenAI-compatible (`AI_API_BASE`/`AI_API_KEY`/`AI_MODEL` trong `apps/api/.env`,
@@ -107,8 +107,9 @@ không commit).
 - [x] ✅ Backend: Dự báo KPI/tài chính (runtime, từ chối kết luận khi thiếu dữ liệu thay vì bịa)
 - [x] ✅ Backend: Journal module (bổ sung Phase 1) — CRUD, 1 entry/ngày, revive-on-recreate
 - [x] ✅ Test: 99 unit pass (23 AI mới), verify thật với LLM router thật + Supabase — số AI khớp 100% dữ liệu thật
-- [ ] 🔄 Frontend: Chat UI, Summary view, nút "Gợi ý AI" trong Task form, Planning view, Forecast view — đang làm
+- [x] ✅ Frontend: trang `/ai` 4 tab (Chat/Tổng kết/Lịch gợi ý/Dự báo) + nút "Gợi ý AI" trong Task form — verify live: chat trả lời đúng số liệu thật (300.000đ khớp DB, transfer bị loại đúng)
 - [ ] ⏸️ Gửi AI summary qua Telegram/push — chưa (cùng lý do BACKLOG.md mục Telegram)
+- [ ] ⏸️ Tổng kết định kỳ tự động (cron/worker) — hiện SYNC theo yêu cầu, để dành khi dựng BullMQ
 
 ---
 
@@ -128,9 +129,12 @@ không commit).
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-**Phase 1 + 2 + 3 xong hoàn toàn** (trừ các mục hoãn có chủ đích trong bảng trên). Tiếp theo:
+**Cả 4 phase trong roadmap đã hoàn tất** (trừ các mục hoãn có chủ đích — xem bảng trên). Việc còn
+lại không phải "chưa xong roadmap" mà là các khoản backlog/nâng cấp:
 
-1. Bắt đầu **Phase 4: Intelligence (AI)** — phân loại task, gợi ý lịch, tổng kết định kỳ, dự báo
-   KPI/tài chính, AI chat trên dữ liệu cá nhân.
-2. Cân nhắc: verify live nốt các tab Finance chưa tự tay click qua (Giao dịch/Ngân sách/Đầu tư/
-   Tài sản) khi có dịp dùng thật.
+1. Verify live nốt các tab Finance chưa tự tay click qua (Giao dịch/Ngân sách/Đầu tư/Tài sản) khi
+   dùng thật hàng ngày.
+2. Xử lý dần các mục trong bảng "Việc hoãn có chủ đích" khi có nhu cầu thật (Telegram, auth
+   hardening, v.v.)
+3. Khi sẵn sàng: CI/CD pipeline + deploy VPS (Docker/Nginx) — đúng thứ tự đã hẹn từ đầu, chỉ làm
+   sau khi dùng thật ổn định ở local.
