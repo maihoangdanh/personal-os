@@ -22,30 +22,30 @@ gốc trong PRD. Chú giải trạng thái:
 - [x] ✅ Backend: CRUD, soft delete, complete, timer start/stop (+ `isTimerRunning`/`activeTimeLogId`), `priorityScore` = impact×urgency, `completedAt`, `estimateMinute`, TaskStatus 6 trạng thái (INBOX/TODO/DOING/REVIEW/DONE/ARCHIVED, không state-machine cứng — Kanban kéo-thả tự do) — verify e2e thật (9/9 test)
 - [x] ✅ Frontend: danh sách task, tạo/sửa, filter theo status, nút toggle timer, Eisenhower Matrix (4 ô Do Now/Schedule/Delegate/Ignore)
 - [ ] ⏸️ Ngưỡng phân loại Eisenhower (`impact/urgency >= 3` = "cao") là suy luận, chưa xác nhận bằng dữ liệu dùng thật. *(Xem BACKLOG.md)*
-- [ ] ❓ `spentMinute` (tổng hợp từ TimeLog) — có ở tầng backend (derivable), **chưa xác nhận đã hiển thị ở UI hay chưa** — cần kiểm tra khi làm QA.
+- [ ] 🔄 `spentMinute` (tổng hợp từ TimeLog) — **xác nhận CHƯA làm** (không có ở backend response lẫn UI, dù note "derivable" từ đầu) — đang giao frontend-engineer bổ sung.
 
 ### Habit Tracker
 - [x] ✅ Backend: CRUD habit, checkin (HabitLog, unique theo ngày), streak tính động từ HabitLog (không lưu cột) — verify qua smoke test thật (checkin → streak=1 đúng)
-- [x] ✅ Frontend: HabitsView, HabitCard, HabitFormDialog — build/typecheck sạch, **chưa tự tay test qua browser thật**
+- [x] ✅ Frontend: HabitsView, HabitCard, HabitFormDialog — build/typecheck sạch, **đang browser-test thật** (giao frontend-engineer, xem tiến độ)
 
 ### Reminder (Notification)
 - [x] ✅ Backend: CRUD, đánh dấu đã đọc, snooze, cron nội bộ (`@nestjs/schedule`, không Redis) quét mỗi phút đánh dấu `sentAt` — verify qua smoke test thật
-- [x] ✅ Frontend: NotificationsView, ReminderFormDialog, SnoozeDialog — build/typecheck sạch, **chưa tự tay test qua browser thật**
+- [x] ✅ Frontend: NotificationsView, ReminderFormDialog, SnoozeDialog — build/typecheck sạch, **đang browser-test thật** (giao frontend-engineer, xem tiến độ)
 - [x] ✅ Gửi thật qua Telegram Bot API — verify bằng cron thật + Telegram thật, chỉ mark `sentAt` khi gửi thành công (101/101 unit test pass)
 
 ### Calendar
 - [x] ✅ Backend: CRUD CalendarEvent, single-occurrence — verify qua smoke test thật
-- [x] ✅ Frontend: CalendarView, CalendarEventFormDialog — build/typecheck sạch, **chưa tự tay test qua browser thật**
+- [x] ✅ Frontend: CalendarView, CalendarEventFormDialog — build/typecheck sạch, **đang browser-test thật** (giao frontend-engineer, xem tiến độ)
 - [ ] ⏸️ Recurrence (sự kiện lặp lại) — ngoài phạm vi Phase 1. *(Xem BACKLOG.md)*
 
 ### Dashboard
 - [x] ✅ "Today's Tasks" (tối giản)
 - [x] ✅ Habit Streak widget — check-in nhanh ngay trên dashboard, verify live qua browser
 - [x] ✅ Urgent & Important panel (tái dùng logic Eisenhower "Do Now") — verify live qua browser
-- [ ] ❌ Goal Progress widget — cần Phase 2 (Goal module) xong trước
-- [ ] ❌ Projects progress widget — cần Phase 2 (Project module) xong trước
-- [ ] ❌ Net Worth / Investment % widget — cần Phase 3 (Finance module) xong trước
-- [ ] ❌ Finance pie chart (Income/Expense/Profit) — cần Phase 3
+- [x] ✅ Goal Progress widget — làm ở Phase 2, xem dòng tương ứng bên dưới
+- [x] ✅ Projects progress widget — làm ở Phase 2, xem dòng tương ứng bên dưới
+- [x] ✅ Net Worth widget — làm ở Phase 3, xem dòng tương ứng bên dưới
+- [ ] ⏸️ Finance pie chart (Income/Expense/Profit) — rút gọn thành stat card ở trang `/finance`, không làm riêng trên Dashboard *(Xem BACKLOG.md nếu muốn thêm sau)*
 
 ### QA
 - [x] ✅ Auth+Task: verify thủ công (test pass, curl thật)
