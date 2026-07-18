@@ -94,15 +94,21 @@ thức với người dùng (xem BACKLOG.md).
 - [ ] 🔄 Verify live chưa phủ hết mọi tab (Giao dịch/Ngân sách/Đầu tư/Tài sản dùng chung pattern component đã verify ở Phase 1/2, nhưng chưa tự tay click qua browser do gián đoạn công cụ giữa buổi — phần quan trọng nhất (tính đúng tiền) đã verify qua API + 2 tab chính)
 - [ ] ⏸️ Report dùng stat card thay vì pie chart — rút gọn có chủ đích, tránh kéo thêm Recharts cho MVP
 
-## Phase 4 — Intelligence (AI)
+## Phase 4 — Intelligence (AI) 🔄 Backend xong, Frontend đang làm
 
-Chưa bắt đầu — schema AI (migration `008_ai`) cũng chưa tạo vì chưa cần.
+Migration 014 (`AiConversation/AiMessage/AiSummary`) + 015 (`Journal`, bổ sung Phase 1 bị bỏ sót).
+LLM: custom router OpenAI-compatible (`AI_API_BASE`/`AI_API_KEY`/`AI_MODEL` trong `apps/api/.env`,
+không commit).
 
-- [ ] ❌ AI tự phân loại task theo Eisenhower (gợi ý, user vẫn override)
-- [ ] ❌ AI gợi ý lịch làm việc tối ưu theo thời gian rảnh (đọc CalendarEvent + Task deadline)
-- [ ] ❌ AI tổng kết ngày/tuần/tháng (job định kỳ, dùng số liệu thật tính trước, model chỉ diễn giải)
-- [ ] ❌ AI dự báo tiến độ KPI/tài chính
-- [ ] ❌ AI chat trên dữ liệu cá nhân (RAG có kiểm soát, scope đúng userId/workspaceId)
+- [x] ✅ Backend: AI Chat (lưu AiConversation/AiMessage, RAG có kiểm soát trên dữ liệu thật)
+- [x] ✅ Backend: Tổng kết định kỳ (lưu AiSummary, upsert theo kỳ) — hiện SYNC, chưa có worker/cron (để dành khi dựng BullMQ)
+- [x] ✅ Backend: Phân loại task Eisenhower (runtime, gợi ý impact/urgency, priorityScore code tính)
+- [x] ✅ Backend: Gợi ý lịch làm việc (runtime, đọc Task deadline + CalendarEvent thật)
+- [x] ✅ Backend: Dự báo KPI/tài chính (runtime, từ chối kết luận khi thiếu dữ liệu thay vì bịa)
+- [x] ✅ Backend: Journal module (bổ sung Phase 1) — CRUD, 1 entry/ngày, revive-on-recreate
+- [x] ✅ Test: 99 unit pass (23 AI mới), verify thật với LLM router thật + Supabase — số AI khớp 100% dữ liệu thật
+- [ ] 🔄 Frontend: Chat UI, Summary view, nút "Gợi ý AI" trong Task form, Planning view, Forecast view — đang làm
+- [ ] ⏸️ Gửi AI summary qua Telegram/push — chưa (cùng lý do BACKLOG.md mục Telegram)
 
 ---
 
