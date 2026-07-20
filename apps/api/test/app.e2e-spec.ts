@@ -109,6 +109,44 @@ describe('Auth + Task (e2e)', () => {
     await request(app.getHttpServer()).get('/api/v1/tasks').expect(401);
   });
 
+  it('PATCH /auth/me updates name/timezone (not email/role)', async () => {
+    const res = await request(app.getHttpServer())
+      .patch('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ name: 'Renamed', timezone: 'UTC' })
+      .expect(200);
+    expect(res.body.data.name).toBe('Renamed');
+    expect(res.body.data.timezone).toBe('UTC');
+    expect(res.body.data.email).toBe(email); // unchanged
+    expect(res.body.data.role).toBe('OWNER'); // unchanged
+  });
+
+  it('change-password: wrong current -> 422, correct -> new password works', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currentPassword: 'wrong-one', newPassword: 'brandnew123' })
+      .expect(422);
+
+    const changed = await request(app.getHttpServer())
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currentPassword: password, newPassword: 'brandnew123' })
+      .expect(200);
+    expect(changed.body.data.changed).toBe(true);
+
+    // old password no longer works, new one does
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(401);
+    const relogin = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'brandnew123' })
+      .expect(200);
+    accessToken = relogin.body.data.tokens.accessToken; // keep token valid for later tests
+  });
+
   it('creates a task in the default Inbox project', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/tasks')

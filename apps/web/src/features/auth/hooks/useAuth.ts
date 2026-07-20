@@ -5,21 +5,11 @@ import { useRouter } from "next/navigation";
 import { clearTokens, setTokens } from "@/lib/auth-storage";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "../store/useAuthStore";
-import type { LoginPayload, RegisterPayload } from "../types/auth.types";
-
-/** Đăng ký → lưu token + user → điều hướng dashboard. */
-export function useRegister() {
-  const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
-  return useMutation({
-    mutationFn: (payload: RegisterPayload) => authService.register(payload),
-    onSuccess: (result) => {
-      setTokens(result.tokens.accessToken, result.tokens.refreshToken);
-      setUser(result.user);
-      router.replace("/dashboard");
-    },
-  });
-}
+import type {
+  ChangePasswordPayload,
+  LoginPayload,
+  UpdateProfilePayload,
+} from "../types/auth.types";
 
 /** Đăng nhập → lưu token + user → điều hướng dashboard. */
 export function useLogin() {
@@ -32,6 +22,22 @@ export function useLogin() {
       setUser(result.user);
       router.replace("/dashboard");
     },
+  });
+}
+
+/** Cập nhật hồ sơ (name/timezone) → đồng bộ store để Sidebar hiện tên mới ngay. */
+export function useUpdateProfile() {
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: (payload: UpdateProfilePayload) => authService.updateProfile(payload),
+    onSuccess: (user) => setUser(user),
+  });
+}
+
+/** Đổi mật khẩu (verify currentPassword ở backend). */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (payload: ChangePasswordPayload) => authService.changePassword(payload),
   });
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,12 +68,6 @@ export function LoginForm() {
             {loginMut.isPending ? "Đang đăng nhập..." : "Đăng nhập"}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Chưa có tài khoản?{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            Đăng ký
-          </Link>
-        </p>
       </CardContent>
     </Card>
   );

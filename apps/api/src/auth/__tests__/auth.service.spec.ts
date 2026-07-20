@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { UserRole } from '@personal-os/database';
 import * as bcrypt from 'bcryptjs';
@@ -12,6 +13,7 @@ type MockRepo = {
   findById: jest.Mock;
   createUserWithWorkspace: jest.Mock;
   countActiveUsers: jest.Mock;
+  update: jest.Mock;
 };
 
 const makeUser = (over: Partial<any> = {}) => ({
@@ -41,6 +43,7 @@ describe('AuthService', () => {
       findById: jest.fn(),
       createUserWithWorkspace: jest.fn(),
       countActiveUsers: jest.fn().mockResolvedValue(0),
+      update: jest.fn(),
     };
     jwt = {
       signAsync: jest.fn().mockResolvedValue('signed.token'),
@@ -136,6 +139,61 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'nobody@test.com', password: 'x' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('updates name/timezone and returns the profile (no passwordHash)', async () => {
+      repo.findById.mockResolvedValue(makeUser());
+      repo.update.mockResolvedValue(makeUser({ name: 'New Name', timezone: 'UTC' }));
+
+      const res = await service.updateProfile('user-1', {
+        name: 'New Name',
+        timezone: 'UTC',
+      });
+
+      expect(repo.update).toHaveBeenCalledWith('user-1', {
+        name: 'New Name',
+        timezone: 'UTC',
+      });
+      expect(res.name).toBe('New Name');
+      expect(res).not.toHaveProperty('passwordHash');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'auth.profile.update' }),
+      );
+    });
+  });
+
+  describe('changePassword', () => {
+    it('changes the password when the current one is correct', async () => {
+      const passwordHash = await bcrypt.hash('oldpass123', 4);
+      repo.findById.mockResolvedValue(makeUser({ passwordHash }));
+      repo.update.mockResolvedValue(makeUser());
+
+      const res = await service.changePassword('user-1', {
+        currentPassword: 'oldpass123',
+        newPassword: 'newpass456',
+      });
+
+      expect(res).toEqual({ changed: true });
+      const arg = repo.update.mock.calls[0][1];
+      expect(arg.passwordHash).toBeDefined();
+      expect(arg.passwordHash).not.toBe('newpass456'); // hashed
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'auth.password.change' }),
+      );
+    });
+
+    it('rejects a wrong current password with 422', async () => {
+      const passwordHash = await bcrypt.hash('oldpass123', 4);
+      repo.findById.mockResolvedValue(makeUser({ passwordHash }));
+      await expect(
+        service.changePassword('user-1', {
+          currentPassword: 'wrong',
+          newPassword: 'newpass456',
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 });

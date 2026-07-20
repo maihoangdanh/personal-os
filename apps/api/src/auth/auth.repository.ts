@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { prisma, User, UserRole } from '@personal-os/database';
+import { prisma, Prisma, User, UserRole } from '@personal-os/database';
 
 export interface CreateUserWithWorkspaceInput {
   email: string;
@@ -24,6 +24,10 @@ export class AuthRepository {
   /** Number of active users — used to enforce the single-account rule. */
   countActiveUsers(): Promise<number> {
     return prisma.user.count({ where: { deletedAt: null } });
+  }
+
+  update(id: string, data: Prisma.UserUncheckedUpdateInput): Promise<User> {
+    return prisma.user.update({ where: { id }, data });
   }
 
   /**

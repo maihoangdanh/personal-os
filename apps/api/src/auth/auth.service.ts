@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -15,8 +16,10 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { AuthRepository } from './auth.repository';
 import { AuthResultDto, TokensDto, UserProfileDto } from './dto/auth-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -104,6 +107,55 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
     return UserProfileDto.from(user);
+  }
+
+  /** PATCH /auth/me — update name/timezone only (not email/role/password). */
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<UserProfileDto> {
+    const user = await this.repo.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.timezone !== undefined) data.timezone = dto.timezone;
+
+    const updated =
+      Object.keys(data).length > 0 ? await this.repo.update(userId, data) : user;
+    await this.audit.record({
+      userId,
+      action: 'auth.profile.update',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { fields: Object.keys(data) },
+    });
+    return UserProfileDto.from(updated);
+  }
+
+  /** POST /auth/change-password — verify current password, then set a new one. */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ changed: true }> {
+    const user = await this.repo.findById(userId);
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('User not found');
+    }
+    const ok = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!ok) {
+      throw new UnprocessableEntityException('Mật khẩu hiện tại không đúng');
+    }
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    await this.repo.update(userId, { passwordHash });
+    await this.audit.record({
+      userId,
+      action: 'auth.password.change',
+      entityType: 'User',
+      entityId: userId,
+    });
+    return { changed: true };
   }
 
   private async buildAuthResult(user: User): Promise<AuthResultDto> {

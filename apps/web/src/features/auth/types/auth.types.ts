@@ -29,16 +29,21 @@ export interface AuthResult {
 }
 
 // --- Request payloads ---
-
-export interface RegisterPayload {
-  email: string;
-  password: string; // 8..72
-  name: string; // 1..200
-  workspaceName?: string; // <=200
-  timezone?: string; // <=64, default "Asia/Ho_Chi_Minh"
-}
+// (RegisterPayload đã gỡ — đăng ký bị khoá vĩnh viễn ở backend.)
 
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+/** PATCH /auth/me */
+export interface UpdateProfilePayload {
+  name?: string; // 1..200
+  timezone?: string; // <=64
+}
+
+/** POST /auth/change-password */
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string; // 8..72
 }

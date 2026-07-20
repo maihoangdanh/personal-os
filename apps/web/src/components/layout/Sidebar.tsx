@@ -12,6 +12,7 @@ import {
   ListChecks,
   LogOut,
   Repeat,
+  Settings,
   Target,
   Wallet,
 } from "lucide-react";
@@ -57,6 +58,10 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   {
     label: "Assistant",
     items: [{ href: "/ai", label: "AI Assistant", icon: Bot }],
+  },
+  {
+    label: "System",
+    items: [{ href: "/settings", label: "Settings", icon: Settings }],
   },
 ];
 
