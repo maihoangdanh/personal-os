@@ -14,8 +14,11 @@ Phase → Module → Task, đối chiếu với roadmap gốc trong PRD. Chú gi
 ## Phase 1 — MVP
 
 ### Auth
-- [x] ✅ Backend: register (tự tạo Workspace + chuỗi Vision/Goal/Project "Inbox"), login, refresh, logout, me — JWT access(15m)+refresh(7d), RBAC (OWNER/ADMIN/MEMBER), bcryptjs hash, audit log — verify e2e thật với Supabase
-- [x] ✅ Frontend: trang login/register, lưu token, interceptor tự refresh khi 401
+- [x] ✅ Backend: register (tự tạo Workspace + chuỗi Vision/Goal/Project "Inbox"), login, refresh, logout, me — JWT access(15m)+refresh(7d), RBAC (OWNER/ADMIN/MEMBER), bcryptjs hash, audit log
+- [x] ✅ Backend: `PATCH /auth/me` (sửa name/timezone), `POST /auth/change-password` (verify currentPassword trước khi đổi)
+- [x] ✅ Backend: **register khoá vĩnh viễn** — 403 nếu đã có ≥1 user active. App giờ chỉ dùng 1 tài khoản duy nhất (`maihoangdanh92@gmail.com`)
+- [x] ✅ Frontend: trang login, lưu token, interceptor tự refresh khi 401. Đã gỡ UI đăng ký (RegisterForm xoá, link đăng ký gỡ khỏi `/login`)
+- [x] ✅ Frontend: trang `/settings` (Hồ sơ + Đổi mật khẩu), thêm nhóm "System" vào Sidebar
 - [ ] ⏸️ Session/refresh-token store để revoke được — hiện stateless, không thu hồi được token trước hạn. *(Xem BACKLOG.md)*
 - [ ] ⏸️ Chuyển token sang httpOnly cookie (thay localStorage) — trade-off XSS, để khi chuẩn bị deploy production. *(Xem BACKLOG.md)*
 
