@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  BookOpen,
   Bot,
   CalendarDays,
   FolderKanban,
@@ -39,6 +40,7 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
       { href: "/habits", label: "Habits", icon: Repeat },
       { href: "/reminders", label: "Reminders", icon: Bell, badge: "unread" },
       { href: "/calendar", label: "Calendar", icon: CalendarDays },
+      { href: "/journal", label: "Journal", icon: BookOpen },
     ],
   },
   {

@@ -45,6 +45,8 @@ function useInvalidateMoney() {
     qc.invalidateQueries({ queryKey: ["wallets"] });
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["budgets"] });
+    qc.invalidateQueries({ queryKey: ["investments"] });
+    qc.invalidateQueries({ queryKey: ["assets"] });
     qc.invalidateQueries({ queryKey: ["finance"] });
   };
 }
