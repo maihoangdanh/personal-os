@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -29,6 +30,12 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResultDto> {
+    // Single-account system: once any user exists, registration is permanently closed.
+    if ((await this.repo.countActiveUsers()) > 0) {
+      throw new ForbiddenException(
+        'Đăng ký đã đóng — hệ thống chỉ dùng 1 tài khoản',
+      );
+    }
     const existing = await this.repo.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('Email already registered');

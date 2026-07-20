@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/http/all-exceptions.filter';
 import { ResponseInterceptor } from '../src/common/http/response.interceptor';
+import { seedUser } from './seed-user';
 
 /**
  * Phase 3 Finance integration test against the REAL Supabase DB. Focus: MONEY
@@ -37,13 +38,15 @@ describe('Finance (e2e)', () => {
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
-    const reg = await http()
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'password123', name: 'Fin User' })
-      .expect(201);
-    userId = reg.body.data.user.id;
-    workspaceId = reg.body.data.user.workspaceId;
-    token = reg.body.data.tokens.accessToken;
+    // Registration is closed (single-account system); seed a user directly.
+    const seeded = await seedUser(email);
+    userId = seeded.user.id;
+    workspaceId = seeded.workspace.id;
+    const login = await http()
+      .post('/api/v1/auth/login')
+      .send({ email, password: seeded.password })
+      .expect(200);
+    token = login.body.data.tokens.accessToken;
   });
 
   afterAll(async () => {

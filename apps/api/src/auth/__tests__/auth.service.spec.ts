@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UserRole } from '@personal-os/database';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from '../auth.service';
@@ -7,6 +11,7 @@ type MockRepo = {
   findByEmail: jest.Mock;
   findById: jest.Mock;
   createUserWithWorkspace: jest.Mock;
+  countActiveUsers: jest.Mock;
 };
 
 const makeUser = (over: Partial<any> = {}) => ({
@@ -35,6 +40,7 @@ describe('AuthService', () => {
       findByEmail: jest.fn(),
       findById: jest.fn(),
       createUserWithWorkspace: jest.fn(),
+      countActiveUsers: jest.fn().mockResolvedValue(0),
     };
     jwt = {
       signAsync: jest.fn().mockResolvedValue('signed.token'),
@@ -86,6 +92,18 @@ describe('AuthService', () => {
           name: 'Owner',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('is CLOSED (403) once an account already exists (single-account system)', async () => {
+      repo.countActiveUsers.mockResolvedValue(1);
+      await expect(
+        service.register({
+          email: 'second@test.com',
+          password: 'password123',
+          name: 'Second',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repo.createUserWithWorkspace).not.toHaveBeenCalled();
     });
   });
 

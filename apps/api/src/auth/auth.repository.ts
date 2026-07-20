@@ -21,6 +21,11 @@ export class AuthRepository {
     return prisma.user.findFirst({ where: { id, deletedAt: null } });
   }
 
+  /** Number of active users — used to enforce the single-account rule. */
+  countActiveUsers(): Promise<number> {
+    return prisma.user.count({ where: { deletedAt: null } });
+  }
+
   /**
    * Registers the first user as OWNER of a brand-new Workspace and provisions the
    * default ownership chain a Task needs (Vision -> Goal -> Project "Inbox"),

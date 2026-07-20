@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/http/all-exceptions.filter';
 import { ResponseInterceptor } from '../src/common/http/response.interceptor';
+import { seedUser } from './seed-user';
 
 /**
  * Full-slice integration test against the REAL Supabase DB:
@@ -39,6 +40,11 @@ describe('Auth + Task (e2e)', () => {
     app.useGlobalInterceptors(new ResponseInterceptor());
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
+
+    // Registration is closed (single-account system); seed a user directly.
+    const seeded = await seedUser(email, password);
+    userId = seeded.user.id;
+    workspaceId = seeded.workspace.id;
   });
 
   afterAll(async () => {
@@ -79,18 +85,14 @@ describe('Auth + Task (e2e)', () => {
     await prisma.$disconnect();
   });
 
-  it('registers a new user + workspace', async () => {
-    const res = await request(app.getHttpServer())
+  it('registration is CLOSED — returns 403 and creates no user (single-account)', async () => {
+    const before = await prisma.user.count({ where: { deletedAt: null } });
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
-      .send({ email, password, name: 'E2E User' })
-      .expect(201);
-
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.user.email).toBe(email);
-    expect(res.body.data.user.role).toBe('OWNER');
-    expect(res.body.data.tokens.accessToken).toBeDefined();
-    userId = res.body.data.user.id;
-    workspaceId = res.body.data.user.workspaceId;
+      .send({ email: `intruder_${Date.now()}@example.com`, password, name: 'Nope' })
+      .expect(403);
+    const after = await prisma.user.count({ where: { deletedAt: null } });
+    expect(after).toBe(before); // no new user created
   });
 
   it('logs in and returns tokens', async () => {
