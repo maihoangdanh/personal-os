@@ -40,7 +40,7 @@ Phase → Module → Task, đối chiếu với roadmap gốc trong PRD. Chú gi
 
 ### Journal (bổ sung — PRD gốc có, Phase 1 ban đầu bỏ sót)
 - [x] ✅ Backend: CRUD `/journals`, 1 entry/ngày (`unique[userId,date]`), revive-on-recreate khi tạo lại ngày đã xoá mềm — verify e2e thật (5/5 test)
-- [ ] ❌ **Frontend: CHƯA CÓ** — không có trang, không có trong Sidebar, không feature folder. Phát hiện khi rà soát lần này — đây là gap thật cần làm.
+- [x] ✅ Frontend: trang `/journal`, "hôm nay" tự chuyển Tạo/Sửa qua `GET /journals/date/:date`, thêm vào nhóm "Daily" trong Sidebar — verify live qua browser thật
 
 ### Dashboard
 - [x] ✅ "Today's Tasks" (tối giản, trong `DashboardView.tsx`)
@@ -93,7 +93,7 @@ với người dùng (xem BACKLOG.md).
 - [x] ✅ Frontend: Investment + Asset CRUD UI
 - [x] ✅ Frontend: Report page + Net Worth breakdown — verify live bằng số tiền cụ thể
 - [x] ✅ Dashboard: NetWorthWidget
-- [ ] 🔄 Tab Giao dịch/Ngân sách/Đầu tư/Tài sản dùng chung pattern component đã verify (Tổng quan/Ví đã verify số tiền cụ thể), nhưng chưa từng browser-click riêng từng tab này — rủi ro thấp (component tái dùng), verify khi dùng thật hàng ngày
+- [x] ✅ 4 tab Giao dịch/Ngân sách/Đầu tư/Tài sản — verify live qua browser thật; phát hiện + fix 1 bug thật (tạo Investment/Asset xong list không refresh do thiếu invalidate cache — build/typecheck không bắt được, chỉ lộ khi click thật)
 - [ ] ⏸️ Report dùng stat card thay vì pie chart — rút gọn có chủ đích
 
 ## Phase 4 — Intelligence (AI) ✅ Hoàn tất
@@ -122,10 +122,9 @@ OpenAI-compatible (`AI_API_BASE`/`AI_API_KEY`/`AI_MODEL` trong `apps/api/.env`, 
 
 ## Gap thật sự còn lại (không phải hoãn có chủ đích)
 
-| Gap | Mức độ | Việc cần làm |
-|-----|--------|--------------|
-| **Journal — chưa có frontend** | Cần làm | Trang `/journal`, CRUD UI, thêm vào Sidebar |
-| Finance: 4 tab (Giao dịch/Ngân sách/Đầu tư/Tài sản) chưa browser-click riêng | Thấp (component tái dùng đã verify) | Verify khi dùng thật |
+Không còn gap nào — **Journal frontend** và **verify 4 tab Finance** đã đóng ngày 2026-07-18
+(commit `9a9e359`), kèm 1 bug thật được phát hiện + fix (invalidate cache thiếu cho Investment/
+Asset). Toàn bộ roadmap 4 phase giờ đã hoàn tất kể cả phần trước đây bị bỏ sót.
 
 ## Việc hoãn có chủ đích (tổng hợp — chi tiết xem [BACKLOG.md](BACKLOG.md))
 
@@ -145,7 +144,8 @@ OpenAI-compatible (`AI_API_BASE`/`AI_API_KEY`/`AI_MODEL` trong `apps/api/.env`, 
 
 ## Việc cần làm ngay tiếp theo (đề xuất thứ tự)
 
-1. **Xây frontend cho Journal** — gap thật duy nhất còn lại trong roadmap 4 phase.
-2. Dùng thật hàng ngày để verify nốt 4 tab Finance chưa click qua + tinh chỉnh ngưỡng Eisenhower.
-3. Xử lý dần các mục "hoãn có chủ đích" khi có nhu cầu thật.
-4. Khi sẵn sàng: CI/CD pipeline + deploy VPS (Docker/Nginx).
+**Không còn gap nào trong roadmap 4 phase.** Việc còn lại thuần là nâng cấp/vận hành:
+
+1. Dùng thật hàng ngày để tinh chỉnh ngưỡng Eisenhower + phát hiện thêm bug ẩn (nếu có).
+2. Xử lý dần các mục "hoãn có chủ đích" khi có nhu cầu thật.
+3. Khi sẵn sàng: CI/CD pipeline + deploy VPS (Docker/Nginx).
