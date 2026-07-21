@@ -11,16 +11,18 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  Moon,
   Repeat,
   Settings,
+  Sun,
   Target,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { useLogout } from "@/features/auth/hooks/useAuth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useUnreadCount } from "@/features/notification/hooks/useNotifications";
+import { useTheme } from "@/components/theme/useTheme";
 
 type NavItem = {
   href: string;
@@ -65,23 +67,40 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   },
 ];
 
+function initials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  const chars =
+    parts.length >= 2
+      ? parts[parts.length - 2][0] + parts[parts.length - 1][0]
+      : parts[0].slice(0, 2);
+  return chars.toUpperCase();
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const logoutMut = useLogout();
   const user = useAuthStore((s) => s.user);
   const unreadQuery = useUnreadCount();
   const unread = unreadQuery.data ?? 0;
+  const { theme, toggle } = useTheme();
 
   return (
-    <aside className="flex w-60 flex-col border-r border-border bg-card">
-      <div className="flex h-14 items-center border-b border-border px-4">
-        <span className="text-lg font-bold">Personal OS</span>
+    <aside className="flex w-[236px] flex-none flex-col bg-[#191512] px-[14px] pb-4 pt-5 text-[#EDE6DA]">
+      {/* Logo */}
+      <div className="flex items-baseline gap-2 px-2.5 pb-[18px] pt-0.5">
+        <span className="font-serif text-[20px] font-semibold italic tracking-[0.01em]">
+          Personal OS
+        </span>
+        <span className="font-mono text-[10px] tracking-[0.12em] text-primary">v2</span>
       </div>
-      <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+
+      {/* Nav */}
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
         {NAV_GROUPS.map((group, groupIdx) => (
-          <div key={group.label ?? `group-${groupIdx}`} className="space-y-1">
+          <div key={group.label ?? `group-${groupIdx}`} className="flex flex-col gap-0.5">
             {group.label && (
-              <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <div className="px-3 pb-1.5 pt-4 font-mono text-[9.5px] uppercase tracking-[0.18em] text-[#EDE6DA]/[0.38]">
                 {group.label}
               </div>
             )}
@@ -94,16 +113,16 @@ export function Sidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-[11px] rounded-[10px] px-3 py-2 text-[13.5px] transition-colors",
                     active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      ? "bg-primary/[0.16] font-semibold text-[#FF7A4D]"
+                      : "font-medium text-[#EDE6DA]/[0.72] hover:bg-[#EDE6DA]/[0.07]",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4 flex-none opacity-90" strokeWidth={1.7} />
                   <span className="flex-1">{item.label}</span>
                   {showBadge && (
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                    <span className="rounded-full bg-primary/90 px-[7px] py-px font-mono text-[10.5px] text-white">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
@@ -113,22 +132,39 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="border-t border-border p-3">
-        {user && (
-          <div className="mb-2 px-1 text-xs text-muted-foreground">
-            <div className="truncate font-medium text-foreground">{user.name}</div>
-            <div className="truncate">{user.email}</div>
-          </div>
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggle}
+        className="mb-3 flex items-center gap-2.5 rounded-[10px] border border-[#EDE6DA]/[0.14] px-3 py-[9px] text-[12.5px] text-[#EDE6DA]/[0.85] transition-colors hover:bg-[#EDE6DA]/[0.07]"
+      >
+        {theme === "dark" ? (
+          <Sun className="h-[15px] w-[15px]" strokeWidth={1.7} />
+        ) : (
+          <Moon className="h-[15px] w-[15px]" strokeWidth={1.7} />
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
+        {theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+      </button>
+
+      {/* User */}
+      <div className="flex items-center gap-2.5 px-1.5 py-1">
+        <div className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-primary text-[12.5px] font-bold text-white">
+          {initials(user?.name)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold">{user?.name ?? "—"}</div>
+          <div className="truncate text-[10.5px] text-[#EDE6DA]/50">{user?.email ?? ""}</div>
+        </div>
+        <button
+          type="button"
+          title="Đăng xuất"
           disabled={logoutMut.isPending}
           onClick={() => logoutMut.mutate()}
+          className="flex-none text-[#EDE6DA]/55 transition-colors hover:text-[#FF7A4D]"
         >
-          <LogOut className="h-4 w-4" /> Đăng xuất
-        </Button>
+          <LogOut className="h-[15px] w-[15px]" strokeWidth={1.7} />
+        </button>
       </div>
     </aside>
   );

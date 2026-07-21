@@ -1,21 +1,36 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, CalendarClock, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardLink } from "@/components/layout/CardLink";
 import { formatDateTime } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useCompleteTask } from "@/features/tasks/hooks/useTasks";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "@/features/tasks/lib/status";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useTodayTasks } from "../hooks/useTodayTasks";
+import { StatStrip } from "./StatStrip";
 import { HabitStreakWidget } from "./HabitStreakWidget";
 import { UrgentImportantWidget } from "./UrgentImportantWidget";
 import { GoalProgressWidget } from "./GoalProgressWidget";
 import { ProjectsProgressWidget } from "./ProjectsProgressWidget";
 import { NetWorthWidget } from "./NetWorthWidget";
+
+function todayLine(): string {
+  return new Date()
+    .toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long" })
+    .toUpperCase();
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 11) return "Chào buổi sáng";
+  if (h < 14) return "Chào buổi trưa";
+  if (h < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
+}
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
@@ -24,26 +39,25 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
+      {/* Header eyebrow + greeting serif */}
       <div>
-        <h1 className="text-2xl font-semibold">
-          Chào {user?.name ?? "bạn"} 👋
+        <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+          {todayLine()}
+        </div>
+        <h1 className="mt-1.5 font-serif text-[34px] font-semibold tracking-tight">
+          {greeting()}, {user?.name ?? "bạn"}.
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Đây là những việc cần tập trung hôm nay.
         </p>
       </div>
 
+      <StatStrip />
+
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-primary" /> Today&apos;s Tasks
-          </CardTitle>
-          <Link
-            href="/tasks"
-            className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            Xem tất cả <ArrowRight className="h-4 w-4" />
-          </Link>
+          <CardTitle className="text-[15px] font-bold">Hôm nay</CardTitle>
+          <CardLink href="/tasks">Xem tất cả →</CardLink>
         </CardHeader>
         <CardContent>
           {isLoading && (
@@ -67,15 +81,15 @@ export function DashboardView() {
           )}
 
           {!isLoading && !isError && data && data.length > 0 && (
-            <ul className="divide-y divide-border">
+            <ul className="-mx-2 flex flex-col">
               {data.map((task) => (
                 <li
                   key={task.id}
-                  className="flex items-center justify-between gap-3 py-3"
+                  className="flex items-center justify-between gap-3 rounded-[10px] px-2 py-[11px] transition-colors hover:bg-secondary"
                 >
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{task.title}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="truncate text-[13.5px] font-medium">{task.title}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-muted-foreground">
                       <Badge variant={STATUS_BADGE_VARIANT[task.status]}>
                         {STATUS_LABELS[task.status]}
                       </Badge>
@@ -102,12 +116,9 @@ export function DashboardView() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <UrgentImportantWidget />
         <HabitStreakWidget />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <GoalProgressWidget />
         <ProjectsProgressWidget />
       </div>

@@ -31,7 +31,7 @@ export function UrgentImportantWidget() {
         </CardTitle>
         <Link
           href="/tasks"
-          className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.06em] text-primary transition-colors hover:text-accent-2"
         >
           Mở Tasks <ArrowRight className="h-4 w-4" />
         </Link>

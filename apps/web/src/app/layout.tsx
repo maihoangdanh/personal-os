@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Be_Vietnam_Pro, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { themeInitScript } from "@/lib/theme";
 
 // Fonts theo mockup: Playfair (serif tiêu đề/số lớn), Be Vietnam Pro (body), IBM Plex Mono (nhãn/số).
 const serif = Playfair_Display({
@@ -36,6 +37,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
       </body>
