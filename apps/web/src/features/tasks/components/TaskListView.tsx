@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Pencil, Play, Square, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Pencil, Play, Square, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
+import { useProjects } from "@/features/projects/hooks/useProjects";
 import {
   useCompleteTask,
   useDeleteTask,
@@ -14,7 +14,7 @@ import {
   useStopTimer,
   useUpdateTask,
 } from "../hooks/useTasks";
-import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "../lib/status";
+import { STATUS_LABELS } from "../lib/status";
 import { TASK_STATUSES, type Task } from "../types/task.types";
 
 interface TaskListViewProps {
@@ -22,8 +22,50 @@ interface TaskListViewProps {
   onEdit: (task: Task) => void;
 }
 
+/** Tên project mặc định (backend tạo lúc register — _workspace/02_backend_auth-task.md). */
+const INBOX_PROJECT_NAME = "Inbox";
+/** Nhãn hiển thị cho nhóm task ở Inbox (task chưa gắn project cụ thể). */
+const INBOX_GROUP_LABEL = "Việc lẻ";
+
+interface TaskGroup {
+  key: string;
+  name: string;
+  isInbox: boolean;
+  tasks: Task[];
+}
+
 export function TaskListView({ tasks, onEdit }: TaskListViewProps) {
   const [actionError, setActionError] = React.useState<string | null>(null);
+  // Reuse Projects list (React Query cache) để map projectId → tên project. KHÔNG API mới.
+  const { data: projects } = useProjects();
+
+  const groups = React.useMemo<TaskGroup[]>(() => {
+    const titleById = new Map<string, string>(
+      (projects ?? []).map((p) => [p.id, p.title]),
+    );
+    const byKey = new Map<string, TaskGroup>();
+    for (const task of tasks) {
+      const title = titleById.get(task.projectId);
+      const isInbox = title === INBOX_PROJECT_NAME;
+      const key = isInbox ? "__inbox__" : task.projectId;
+      let group = byKey.get(key);
+      if (!group) {
+        group = {
+          key,
+          name: isInbox ? INBOX_GROUP_LABEL : (title ?? "Dự án khác"),
+          isInbox,
+          tasks: [],
+        };
+        byKey.set(key, group);
+      }
+      group.tasks.push(task);
+    }
+    // Nhóm project thật xếp trước (theo tên), nhóm "Việc lẻ" (Inbox) luôn cuối.
+    return Array.from(byKey.values()).sort((a, b) => {
+      if (a.isInbox !== b.isInbox) return a.isInbox ? 1 : -1;
+      return a.name.localeCompare(b.name, "vi");
+    });
+  }, [tasks, projects]);
 
   if (tasks.length === 0) {
     return (
@@ -34,35 +76,76 @@ export function TaskListView({ tasks, onEdit }: TaskListViewProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       {actionError && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {actionError}
         </p>
       )}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Task</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Impact×Urgency</th>
-              <th className="px-3 py-2 font-medium">Deadline</th>
-              <th className="px-3 py-2 text-right font-medium">Hành động</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={onEdit}
-                onError={setActionError}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {groups.map((group) => (
+        <div key={group.key} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold">{group.name}</h3>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {group.tasks.length}
+            </span>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Task</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Ưu tiên</th>
+                  <th className="px-3 py-2 font-medium">Deadline</th>
+                  <th className="px-3 py-2 text-right font-medium">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {group.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onEdit={onEdit}
+                    onError={setActionError}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Map priorityScore (1..25) → 1..5 sao (chia đều 5 khoảng). */
+function StarRating({
+  impact,
+  urgency,
+  score,
+}: {
+  impact: number;
+  urgency: number;
+  score: number | null;
+}) {
+  const raw = score ?? impact * urgency;
+  const stars = Math.min(5, Math.max(1, Math.ceil(raw / 5)));
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      title={`Impact ${impact} × Urgency ${urgency} = ${raw}`}
+    >
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={
+            i <= stars
+              ? "h-3.5 w-3.5 fill-warning text-warning"
+              : "h-3.5 w-3.5 text-muted-foreground/40"
+          }
+        />
+      ))}
     </div>
   );
 }
@@ -144,9 +227,7 @@ function TaskRow({
         </Select>
       </td>
       <td className="px-3 py-2">
-        <Badge variant={STATUS_BADGE_VARIANT[task.status]}>
-          {task.impact} × {task.urgency} = {task.priorityScore ?? task.impact * task.urgency}
-        </Badge>
+        <StarRating impact={task.impact} urgency={task.urgency} score={task.priorityScore} />
       </td>
       <td className="px-3 py-2 text-muted-foreground">
         {formatDateTime(task.deadline)}
