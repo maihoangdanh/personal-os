@@ -37,7 +37,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         details = b.details ?? (Array.isArray(b.message) ? b.message : null);
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // Log full detail server-side only — never leak internals (stack trace,
+      // file paths, DB connection strings) to the client. Prisma errors in
+      // particular embed source snippets in `message`.
       this.logger.error(exception.message, exception.stack);
     }
 
