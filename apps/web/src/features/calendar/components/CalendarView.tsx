@@ -1,19 +1,9 @@
 "use client";
 
 import * as React from "react";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  MapPin,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatDateTime } from "@/lib/format";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import {
   useCalendarEventList,
@@ -22,21 +12,33 @@ import {
 import {
   computeRange,
   formatRangeLabel,
-  groupByDay,
   shiftAnchor,
-  type RangeMode,
 } from "../lib/range";
 import type { CalendarEvent } from "../types/calendar.types";
 import { CalendarEventFormDialog } from "./CalendarEventFormDialog";
 
+const WEEKDAY_NAMES = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+
+/** Key ngày local "YYYY-MM-DD". */
+function dayKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return dayKey(a) === dayKey(b);
+}
+
 export function CalendarView() {
-  const [mode, setMode] = React.useState<RangeMode>("week");
+  // Tuần cố định (Thứ Hai → Chủ Nhật) theo mockup — giữ hook/range/routing.
+  const mode = "week" as const;
   const [anchor, setAnchor] = React.useState<Date>(() => new Date());
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<CalendarEvent | null>(null);
 
-  const range = React.useMemo(() => computeRange(anchor, mode), [anchor, mode]);
+  const range = React.useMemo(() => computeRange(anchor, mode), [anchor]);
   const { data, isLoading, isError, error } = useCalendarEventList(range);
+  const deleteMut = useDeleteCalendarEvent();
 
   function openCreate() {
     setEditing(null);
@@ -47,64 +49,70 @@ export function CalendarView() {
     setDialogOpen(true);
   }
 
-  const groups = data ? groupByDay(data) : [];
+  // 7 cột T2 → CN dựng từ đầu khoảng (range.from = Thứ Hai).
+  const weekDays = React.useMemo(() => {
+    const start = new Date(range.from);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return { date: d, name: WEEKDAY_NAMES[i] };
+    });
+  }, [range.from]);
+
+  // Gom event theo ngày local của startTime.
+  const eventsByDay = React.useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const ev of data ?? []) {
+      const key = dayKey(new Date(ev.startTime));
+      const bucket = map.get(key);
+      if (bucket) bucket.push(ev);
+      else map.set(key, [ev]);
+    }
+    return map;
+  }, [data]);
+
+  const today = new Date();
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-          <Button
-            variant={mode === "day" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMode("day")}
-          >
-            Ngày
-          </Button>
-          <Button
-            variant={mode === "week" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMode("week")}
-          >
-            Tuần
-          </Button>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Tạo sự kiện
-        </Button>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setAnchor((a) => shiftAnchor(a, mode, -1))}
-          title="Trước"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          {formatRangeLabel(range, mode)}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setAnchor(new Date())}
-            title="Về hôm nay"
-          >
-            Hôm nay
-          </Button>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setAnchor((a) => shiftAnchor(a, mode, 1))}
-          title="Sau"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {isLoading && <CalendarSkeleton />}
+      <PageHeader
+        eyebrow="LỊCH"
+        title="Calendar"
+        description={`Tuần ${formatRangeLabel(range, mode)}`}
+        actions={
+          <>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setAnchor((a) => shiftAnchor(a, mode, -1))}
+                title="Tuần trước"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAnchor(new Date())}
+                title="Về tuần này"
+              >
+                Hôm nay
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setAnchor((a) => shiftAnchor(a, mode, 1))}
+                title="Tuần sau"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" /> Tạo sự kiện
+            </Button>
+          </>
+        }
+      />
 
       {isError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-destructive">
@@ -112,31 +120,56 @@ export function CalendarView() {
         </div>
       )}
 
-      {!isLoading && !isError && data && (
-        <>
-          {groups.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-              Không có sự kiện trong khoảng này. Nhấn{" "}
-              <span className="font-medium">Tạo sự kiện</span> để thêm.
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
+        {weekDays.map(({ date, name }) => {
+          const isToday = isSameDay(date, today);
+          const dayEvents = eventsByDay.get(dayKey(date)) ?? [];
+          return (
+            <div
+              key={dayKey(date)}
+              className={
+                isToday
+                  ? "min-h-[300px] rounded-[14px] border border-foreground bg-foreground px-3 py-3.5 shadow-card"
+                  : "min-h-[300px] rounded-[14px] border border-border bg-card px-3 py-3.5 shadow-card"
+              }
+            >
+              <div
+                className={
+                  "font-mono text-[10px] tracking-[0.14em] " +
+                  (isToday ? "text-primary" : "text-muted-foreground")
+                }
+              >
+                {name}
+              </div>
+              <div
+                className={
+                  "mb-3 mt-1 font-serif text-[22px] font-semibold " +
+                  (isToday ? "text-background" : "text-foreground")
+                }
+              >
+                {date.getDate()}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {isLoading ? (
+                  <>
+                    <div className="h-10 animate-pulse rounded-[0_8px_8px_0] bg-muted" aria-hidden />
+                    <div className="h-10 animate-pulse rounded-[0_8px_8px_0] bg-muted" aria-hidden />
+                  </>
+                ) : (
+                  dayEvents.map((ev) => (
+                    <EventBlock
+                      key={ev.id}
+                      event={ev}
+                      onEdit={openEdit}
+                      onDelete={() => deleteMut.mutate(ev.id)}
+                    />
+                  ))
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="space-y-5">
-              {groups.map((group) => (
-                <div key={group.key} className="space-y-2">
-                  <h3 className="text-sm font-semibold capitalize text-muted-foreground">
-                    {group.label}
-                  </h3>
-                  <div className="space-y-2">
-                    {group.events.map((ev) => (
-                      <EventCard key={ev.id} event={ev} onEdit={openEdit} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+          );
+        })}
+      </div>
 
       <CalendarEventFormDialog
         open={dialogOpen}
@@ -147,85 +180,50 @@ export function CalendarView() {
   );
 }
 
-function EventCard({
+function EventBlock({
   event,
   onEdit,
+  onDelete,
 }: {
   event: CalendarEvent;
   onEdit: (event: CalendarEvent) => void;
+  onDelete: () => void;
 }) {
-  const deleteMut = useDeleteCalendarEvent();
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function handleDelete() {
-    setError(null);
-    try {
-      await deleteMut.mutateAsync(event.id);
-    } catch (err) {
-      setError(extractApiErrorMessage(err));
-    }
-  }
+  const timeLabel = event.allDay
+    ? "Cả ngày"
+    : new Date(event.startTime).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-foreground">{event.title}</span>
-            {event.allDay && <Badge variant="secondary">Cả ngày</Badge>}
-          </div>
-          {event.description && (
-            <p className="text-sm text-muted-foreground">{event.description}</p>
-          )}
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            <span>
-              {formatDateTime(event.startTime)}
-              {event.endTime ? ` → ${formatDateTime(event.endTime)}` : ""}
-            </span>
-            {event.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> {event.location}
-              </span>
-            )}
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Sửa"
-            disabled={deleteMut.isPending}
-            onClick={() => onEdit(event)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Xoá (soft delete)"
-            disabled={deleteMut.isPending}
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CalendarSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-20 animate-pulse rounded-lg bg-muted"
-          aria-hidden
-        />
-      ))}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onEdit(event)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onEdit(event);
+        }
+      }}
+      className="group relative cursor-pointer rounded-[0_8px_8px_0] border-l-[3px] border-primary bg-secondary py-1.5 pl-2.5 pr-2 transition-colors hover:bg-secondary/70"
+    >
+      <div className="font-mono text-[9.5px] text-primary">{timeLabel}</div>
+      <div className="mt-0.5 text-[11.5px] font-medium leading-[1.35] text-foreground">
+        {event.title}
+      </div>
+      <button
+        type="button"
+        title="Xoá sự kiện"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="absolute right-1 top-1 hidden rounded p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
+      >
+        <X className="h-3 w-3" />
+      </button>
     </div>
   );
 }
