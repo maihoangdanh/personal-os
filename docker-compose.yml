@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   api:
     build:
@@ -9,6 +15,7 @@ services:
       - .env.production
     ports:
       - "127.0.0.1:3001:3001"
+    logging: *default-logging
 
   web:
     build:
@@ -20,3 +27,4 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
+    logging: *default-logging
