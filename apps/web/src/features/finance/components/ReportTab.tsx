@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import {
@@ -26,6 +28,19 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Dịch "YYYY-MM" tới/lui theo số tháng. */
+function shiftMonth(m: string, dir: 1 | -1): string {
+  const [y, mo] = m.split("-").map(Number);
+  const d = new Date(y, mo - 1 + dir, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Nhãn "Tháng M, YYYY" từ "YYYY-MM". */
+function monthLabel(m: string): string {
+  const [y, mo] = m.split("-").map(Number);
+  return `Tháng ${mo}, ${y}`;
+}
+
 function shortDate(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -34,9 +49,10 @@ function shortDate(iso: string): string {
 const DOT_COLORS = ["bg-accent-2", "bg-primary", "bg-warning"];
 
 export function ReportTab({ goToTab }: { goToTab?: (t: FinanceTabKey) => void }) {
-  const month = React.useMemo(() => currentMonth(), []);
+  const [month, setMonth] = React.useState(() => currentMonth());
   const report = useFinanceReport(month);
   const netWorth = useNetWorth();
+  const isCurrent = month === currentMonth();
 
   const stats = [
     {
@@ -67,6 +83,35 @@ export function ReportTab({ goToTab }: { goToTab?: (t: FinanceTabKey) => void })
 
   return (
     <div className="space-y-4">
+      {/* Điều hướng tháng — giữ khả năng xem báo cáo tháng khác */}
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setMonth((m) => shiftMonth(m, -1))}
+          title="Tháng trước"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="min-w-[130px] text-center font-mono text-[12.5px] font-semibold tracking-[0.04em]">
+          {monthLabel(month)}
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setMonth((m) => shiftMonth(m, 1))}
+          disabled={isCurrent}
+          title="Tháng sau"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        {!isCurrent && (
+          <Button variant="outline" size="sm" onClick={() => setMonth(currentMonth())}>
+            Tháng này
+          </Button>
+        )}
+      </div>
+
       {report.isError && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {extractApiErrorMessage(report.error)}

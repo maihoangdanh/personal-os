@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { extractApiErrorMessage } from "@/lib/api-client";
+import { useGoals } from "@/features/goals/hooks/useGoals";
 import { useDeleteProject, useProjects } from "../hooks/useProjects";
 import type { Project, ProjectStatus } from "../types/projects.types";
 import { ProjectFormDialog } from "./ProjectFormDialog";
@@ -42,6 +43,9 @@ function barColorClass(status: ProjectStatus): string {
 
 export function ProjectListView() {
   const { data: projects, isLoading, isError, error } = useProjects();
+  // Reuse Goals list (React Query cache) để map goalId → tên goal, không thêm API/N+1.
+  const { data: goals } = useGoals();
+  const goalTitle = (goalId: string) => goals?.find((g) => g.id === goalId)?.title;
   const deleteMut = useDeleteProject();
   const [dialog, setDialog] = React.useState(false);
   const [editing, setEditing] = React.useState<Project | null>(null);
@@ -97,6 +101,12 @@ export function ProjectListView() {
                 {project.status}
               </span>
             </div>
+
+            {goalTitle(project.goalId) && (
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                Goal: {goalTitle(project.goalId)}
+              </div>
+            )}
 
             <div className="mb-1.5 mt-4 font-serif text-2xl font-bold">{project.progress}%</div>
             <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
