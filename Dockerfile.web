@@ -1,0 +1,24 @@
+# Build context: repo root (monorepo).
+FROM node:20-bookworm-slim
+
+WORKDIR /repo
+
+COPY package.json package-lock.json ./
+COPY packages/database/package.json packages/database/package.json
+COPY apps/web/package.json apps/web/package.json
+
+RUN npm ci
+
+COPY packages/database packages/database
+COPY apps/web apps/web
+
+# Relative path — browser resolves it against whatever origin Nginx serves
+# (works for IP now, domain later, HTTP now, HTTPS later — no rebuild needed).
+ARG NEXT_PUBLIC_API_URL=/api/v1
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+RUN npm run build -w apps/web
+
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["npm", "run", "start", "-w", "apps/web"]
