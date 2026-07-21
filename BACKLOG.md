@@ -3,6 +3,16 @@
 Không phải bug, không phải thiếu sót — đây là các quyết định **chủ động hoãn lại** trong lúc build
 Phase 1, ghi lại để không quên và biết chỗ nào cần quay lại sửa/bổ sung.
 
+## Supabase — Direct Connection chỉ IPv6, phải dùng Pooler ✅ Đã xử lý (2026-07-21)
+
+- **Sự cố**: `db.[ref].supabase.co:5432` (Direct Connection) chỉ có bản ghi DNS IPv6 kể
+  từ 2024 — Prisma báo `P1001 Can't reach database server` dù password đúng, nếu máy/mạng
+  không route được IPv6 tới Supabase.
+- **Đã sửa**: đổi `DATABASE_URL` sang Connection Pooler (`aws-0-[region].pooler.supabase.com:6543`,
+  dual-stack IPv4+IPv6, username dạng `postgres.[project-ref]`, thêm `?pgbouncer=true`).
+- **Nếu tạo project Supabase mới sau này**: nhớ luôn lấy connection string từ tab
+  "Session pooler"/"Transaction pooler" trong popup Connect, không lấy tab "Direct connection".
+
 ## Reminder — gửi Telegram thật ✅ Đã xong (2026-07-18)
 
 - **Đã hoàn tất**: `notification/telegram-client.ts` gọi Telegram Bot API thật. Cron mỗi phút quét
