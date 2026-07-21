@@ -1,13 +1,36 @@
 # Personal OS — Kế hoạch triển khai chi tiết
 
-Cập nhật lần cuối: 2026-07-20 (105 unit test pass, typecheck backend+frontend sạch, 15 migration,
-21 module backend). Theo dõi tiến độ từ Phase → Module → Task, đối chiếu với roadmap gốc trong
-PRD. Chú giải trạng thái:
+Cập nhật lần cuối: 2026-07-21 (105 unit test pass, typecheck backend+frontend sạch, 15 migration,
+21 module backend, redesign toàn bộ UI theo mockup thiết kế thật). Theo dõi tiến độ từ
+Phase → Module → Task, đối chiếu với roadmap gốc trong PRD. Chú giải trạng thái:
 
 - ✅ **Xong** — đã build + verify thật (test pass, chạy thật với Supabase, browser-test thật, hoặc smoke test HTTP)
 - 🔄 **Đang làm** — có code nhưng chưa verify đầy đủ / đang chạy dở
 - ⏸️ **Hoãn có chủ đích** — quyết định KHÔNG làm bây giờ, xem chi tiết lý do trong [BACKLOG.md](BACKLOG.md)
 - ❌ **Chưa bắt đầu**
+
+---
+
+## Redesign UI ✅ Hoàn tất (2026-07-21)
+
+Áp dụng bộ mockup thiết kế thật tại [`design/Personal OS.dc.html`](design/Personal%20OS.dc.html)
+(nguồn tham khảo chính thức của dự án) vào toàn bộ `apps/web` — không đổi logic/API/hook, chỉ đổi
+visual.
+
+- [x] ✅ Design token toàn cục: màu (nền kem/card trắng ngà/accent cam cháy #D9481F/accent-2 xanh
+      rêu/vàng đồng), font (Playfair Display serif + Be Vietnam Pro + IBM Plex Mono qua
+      `next/font/google`), bo góc 16px, shadow mềm — `globals.css` + `tailwind.config.ts`, có `.dark`
+- [x] ✅ Sidebar: nền tối `#191512`, item active accent, nút toggle sáng/tối, avatar initials
+- [x] ✅ Dashboard: eyebrow + greeting serif, StatStrip 4 ô, widget grid
+- [x] ✅ Tasks, Habits, Reminders, Calendar (lưới tuần 7 cột), Journal (composer inline), Goals
+      (Vision card lồng Goal card), Projects (grid card + tên Goal), Finance (tab pill + stat
+      strip + chọn tháng), AI (sidebar hội thoại + chat bubble), Settings (2 cột)
+- [x] ✅ Toàn bộ verify live qua browser thật từng trang, `tsc`/`next build` sạch (17 route)
+- [x] ✅ Phát hiện + fix 1 regression thật: redesign vô tình khoá cứng tháng ở Finance Report
+      (mất khả năng xem tháng khác) — đã khôi phục
+- [ ] ⏸️ Project card thiếu due date + task count (mockup có, DTO/schema chưa hỗ trợ) — xem BACKLOG.md
+- [ ] ⏸️ Màu theo category (Calendar event/Journal mood/Finance category) dùng màu cố định do field
+      free-text, không phải bảng màu định nghĩa sẵn — chấp nhận được, đổi sau nếu cần
 
 ---
 

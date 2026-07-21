@@ -3,6 +3,16 @@
 Không phải bug, không phải thiếu sót — đây là các quyết định **chủ động hoãn lại** trong lúc build
 Phase 1, ghi lại để không quên và biết chỗ nào cần quay lại sửa/bổ sung.
 
+## Project — thiếu due date + task count trên card
+
+- **Hiện trạng**: mockup thiết kế hiện "13/18 task" và "Hạn: 15/08/2026" trên mỗi Project card,
+  nhưng schema `Project` không có cột `dueDate`, và số lượng task cần query riêng (không có sẵn
+  trong response list hiện tại).
+- **Hoãn**: đây là việc redesign thuần UI, không tự thêm cột DB/endpoint mới giữa lúc đó.
+- **Khi làm lại**: nếu cần, thêm migration `dueDate DateTime?` vào Project (additive) + backend
+  trả thêm `taskCount`/`taskDoneCount` trong ProjectResponseDto (đã có progress rồi nên tính
+  taskCount không tốn thêm query lớn, có thể gộp cùng lúc tính progress).
+
 ## Supabase — Direct Connection chỉ IPv6, phải dùng Pooler ✅ Đã xử lý (2026-07-21)
 
 - **Sự cố**: `db.[ref].supabase.co:5432` (Direct Connection) chỉ có bản ghi DNS IPv6 kể
