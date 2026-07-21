@@ -50,3 +50,11 @@ export function isToday(iso: string | null): boolean {
     d.getDate() === now.getDate()
   );
 }
+
+/** true nếu deadline đã trôi qua so với thời điểm hiện tại (quá hạn). */
+export function isOverdue(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
+}

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useTaskList } from "@/features/tasks/hooks/useTasks";
 import { groupByQuadrant } from "@/features/tasks/lib/eisenhower";
+import { PriorityStars } from "@/features/tasks/components/PriorityStars";
 
 /**
  * Urgent & Important panel.
@@ -67,8 +68,12 @@ export function UrgentImportantWidget() {
                 >
                   <span aria-hidden>🔥</span>
                   <span className="truncate">{task.title}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    I{task.impact}·U{task.urgency}
+                  <span className="ml-auto shrink-0">
+                    <PriorityStars
+                      impact={task.impact}
+                      urgency={task.urgency}
+                      score={task.priorityScore}
+                    />
                   </span>
                 </Link>
               </li>

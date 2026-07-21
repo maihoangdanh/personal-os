@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardLink } from "@/components/layout/CardLink";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, isOverdue } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useCompleteTask } from "@/features/tasks/hooks/useTasks";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "@/features/tasks/lib/status";
@@ -173,7 +173,13 @@ export function DashboardView() {
                             I{task.impact}·U{task.urgency}
                           </span>
                           <span>·</span>
-                          <span>Deadline: {formatDateTime(task.deadline)}</span>
+                          {isOverdue(task.deadline) ? (
+                            <span className="font-semibold text-destructive">
+                              QUÁ HẠN · {formatDateTime(task.deadline)}
+                            </span>
+                          ) : (
+                            <span>Deadline: {formatDateTime(task.deadline)}</span>
+                          )}
                         </div>
                       </div>
                       <Button

@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Pencil, Play, Square, Star, Trash2 } from "lucide-react";
+import { CheckCircle2, Pencil, Play, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useProjects } from "@/features/projects/hooks/useProjects";
+import { PriorityStars } from "./PriorityStars";
 import {
   useCompleteTask,
   useDeleteTask,
@@ -119,37 +120,6 @@ export function TaskListView({ tasks, onEdit }: TaskListViewProps) {
   );
 }
 
-/** Map priorityScore (1..25) → 1..5 sao (chia đều 5 khoảng). */
-function StarRating({
-  impact,
-  urgency,
-  score,
-}: {
-  impact: number;
-  urgency: number;
-  score: number | null;
-}) {
-  const raw = score ?? impact * urgency;
-  const stars = Math.min(5, Math.max(1, Math.ceil(raw / 5)));
-  return (
-    <div
-      className="flex items-center gap-0.5"
-      title={`Impact ${impact} × Urgency ${urgency} = ${raw}`}
-    >
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          className={
-            i <= stars
-              ? "h-3.5 w-3.5 fill-warning text-warning"
-              : "h-3.5 w-3.5 text-muted-foreground/40"
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
 function TaskRow({
   task,
   onEdit,
@@ -227,7 +197,7 @@ function TaskRow({
         </Select>
       </td>
       <td className="px-3 py-2">
-        <StarRating impact={task.impact} urgency={task.urgency} score={task.priorityScore} />
+        <PriorityStars impact={task.impact} urgency={task.urgency} score={task.priorityScore} />
       </td>
       <td className="px-3 py-2 text-muted-foreground">
         {formatDateTime(task.deadline)}
