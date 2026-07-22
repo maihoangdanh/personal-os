@@ -92,7 +92,14 @@ export function TaskListView({ tasks, onEdit }: TaskListViewProps) {
             </span>
           </div>
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[720px] table-fixed text-sm">
+              <colgroup>
+                <col />
+                <col className="w-32" />
+                <col className="w-28" />
+                <col className="w-36" />
+                <col className="w-32" />
+              </colgroup>
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">Task</th>
