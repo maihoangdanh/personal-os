@@ -1,0 +1,32 @@
+# Build context: repo root (monorepo). Single-stage — keeps Prisma engine
+# (glibc, matches this base image) consistent between generate and runtime,
+# avoiding musl/glibc engine-mismatch pitfalls from multi-stage + alpine.
+FROM node:20-bookworm-slim
+
+WORKDIR /repo
+
+# Prisma's query engine needs libssl to detect the OpenSSL version at runtime.
+RUN apt-get update -qq && apt-get install -y -qq openssl && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+COPY packages/database/package.json packages/database/package.json
+COPY apps/api/package.json apps/api/package.json
+
+RUN npm ci
+
+COPY packages/database packages/database
+COPY apps/api apps/api
+
+RUN npx --workspace packages/database prisma generate
+RUN npm run build -w apps/api
+
+ENV NODE_ENV=production
+EXPOSE 3001
+# @personal-os/database's package.json "main" points at its raw .ts source
+# (works fine in dev via ts-node/register). Keep the same loader here so the
+# workspace require() resolves correctly against compiled apps/api/dist code.
+# WORKDIR must be apps/api so ts-node's tsconfig.json discovery (cwd-based,
+# not file-based) finds apps/api/tsconfig.json instead of falling back to its
+# own default compilerOptions (module/moduleResolution mismatch otherwise).
+WORKDIR /repo/apps/api
+CMD ["node", "-r", "ts-node/register/transpile-only", "dist/main.js"]
