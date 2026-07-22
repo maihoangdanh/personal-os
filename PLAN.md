@@ -85,45 +85,44 @@ visual.
 - [x] ✅ Chạy local trực tiếp (không Docker), Supabase Postgres
 - [x] ✅ Repo GitHub đồng bộ (`github.com/maihoangdanh/personal-os`)
 - [ ] ❌ CI/CD pipeline (lint/test/build tự động)
-- [ ] 🔄 **Deploy Oracle Cloud VPS — đang bắt đầu (2026-07-21)**, xem chi tiết mục "Deploy Oracle Cloud" ngay dưới
+- [x] ✅ **Deploy Oracle Cloud VPS — hoàn tất (2026-07-22)**, xem chi tiết mục "Deploy Oracle Cloud" ngay dưới
 
-## Deploy Oracle Cloud 🔄 Đang chuẩn bị (2026-07-21)
+## Deploy Oracle Cloud ✅ Hoàn tất (2026-07-22)
 
-**Quyết định đã chốt với người dùng:**
-- Hạ tầng: Oracle Cloud Compute Instance (đã tạo sẵn, Ubuntu, SSH user `ubuntu`).
-- Domain: người dùng có tên miền riêng, sẽ trỏ DNS qua **Cloudflare** về IP VM.
-- HTTPS: cần cấu hình (Let's Encrypt/Certbot, hoặc qua Cloudflare proxy — quyết định cụ thể lúc setup Nginx).
-- Kiến trúc dự kiến: cài Node.js trên VM → clone repo → `npm install` + build cả `apps/api`
-  lẫn `apps/web` → chạy bằng **PM2** (không Docker, giữ nhất quán tinh thần "đơn giản" đã chọn
-  cho dev local — có thể đổi sang Docker sau nếu cần) → **Nginx** làm reverse proxy (web port
-  3000, api port 3001) + SSL.
-- Database: **vẫn dùng Supabase** (Postgres đã ở cloud rồi, VPS chỉ cần connect qua Pooler
-  connection string đã có, không cần cài Postgres trên VPS).
+**Hạ tầng thật đang chạy:**
+- VM: Oracle Cloud Compute Instance, Ubuntu, SSH user `ubuntu`, **Public IP `149.118.63.154`**.
+- Người dùng **tự deploy bằng Docker** (đổi khỏi kế hoạch PM2 ban đầu) — 2 container:
+  `personal-os-api` (build từ `app-api` image, bind `127.0.0.1:3001`), `personal-os-web`
+  (build từ `app-web` image, bind `127.0.0.1:3000`) — cả hai chỉ nghe localhost, không lộ port
+  ra ngoài trực tiếp, đúng thực hành tốt.
+- **Nginx** reverse proxy phía trước: `/api/` → `127.0.0.1:3001`, `/` → `127.0.0.1:3000`. Config
+  tại `/etc/nginx/sites-available/personal-os` trên VM.
+- Database: vẫn **Supabase** (không đổi, VPS chỉ connect qua Pooler).
+- Firewall: Oracle Security List + iptables đã mở sẵn port 22/80/443 (không phải chặn).
 
-**Đang chặn — cần từ người dùng để tiếp tục:**
-1. ❌ **Public IP của VM** — người dùng mới chỉ có Private IP. Đã hướng dẫn cách tìm/gán Public
-   IP (Ephemeral) qua OCI Console → Compute → Instances → Attached VNICs → Edit IPv4 Addresses.
-2. ❌ **SSH private key** (file `.key`/`.pem` tải về lúc tạo instance) — người dùng sẽ gửi.
-3. ❌ **Tên miền cụ thể** muốn dùng — người dùng nói "đưa lên đi rồi gửi IP tao trỏ" nghĩa là
-   **thứ tự ngược lại**: deploy trước bằng IP, sau đó người dùng tự trỏ domain qua Cloudflare
-   khi có Public IP — không cần domain ngay từ đầu để bắt đầu deploy.
+**Domain + HTTPS:**
+- Domain: `hoangdanh.cloud` (Cloudflare), subdomain **`task.hoangdanh.cloud`** trỏ A record về
+  `149.118.63.154`, **Proxied** (orange cloud).
+- Sự cố gặp phải: Cloudflare báo **lỗi 521 "Web server is down"** — nguyên nhân là Nginx trên VM
+  ban đầu chỉ có `listen 80`, chưa hề có `listen 443`/SSL nào, trong khi chế độ SSL/TLS trên
+  Cloudflare yêu cầu HTTPS tới origin → bị từ chối kết nối.
+- **Đã xử lý**: tạo **Cloudflare Origin Certificate** (miễn phí, qua Cloudflare Dashboard →
+  SSL/TLS → Origin Server), cài vào `/etc/nginx/ssl/cf-origin.{pem,key}` trên VM (quyền
+  `600`/`644`, chỉ root đọc được private key), thêm `server { listen 443 ssl; ... }` vào cùng
+  file Nginx config, reload Nginx. Verify: `https://127.0.0.1/login` trên VM = 200,
+  `https://149.118.63.154/login` từ ngoài = 200, **`https://task.hoangdanh.cloud/login` = 200
+  với nội dung trang thật** (không phải trang lỗi Cloudflare).
+- Cloudflare SSL/TLS mode nên để **"Full (strict)"** (origin đã có cert hợp lệ do chính
+  Cloudflare CA cấp, không cần "Flexible" nữa).
 
-**Việc cần làm khi có Public IP + SSH key (thứ tự dự kiến):**
-1. SSH vào VM, cài Node.js (LTS ≥20), git, Nginx, PM2 (`npm i -g pm2`).
-2. Clone repo `github.com/maihoangdanh/personal-os` vào VM (cần deploy key hoặc HTTPS + token
-   nếu repo private — kiểm tra lại repo đang public hay private).
-3. Tạo `.env` thật trên VPS cho `apps/api` (DATABASE_URL Supabase Pooler, JWT secret **mới**
-   cho production — không dùng lại secret dev, AI_API_*, TELEGRAM_*) — nhập tay trên VPS, không
-   commit, không truyền qua git.
-4. `npm install` ở root (workspaces) → build `apps/api` (tsc) + `apps/web` (`next build`).
-5. Chạy bằng PM2: 1 process cho `apps/api` (port 3001), 1 process cho `apps/web`
-   (`next start`, port 3000) → `pm2 save` + `pm2 startup` để tự khởi động lại khi VM reboot.
-6. Cài Nginx: reverse proxy `/` → web:3000, `/api` → api:3001 (hoặc theo đúng path hiện tại của
-   frontend gọi API — kiểm tra `NEXT_PUBLIC_API_URL` đang trỏ đâu để cấu hình đúng).
-7. Mở port 80/443 trên Oracle Cloud Security List/NSG (mặc định OCI chặn hết port trừ 22 — đây
-   là bước hay bị quên, phải mở thủ công trong VCN Security List).
-8. Verify truy cập qua `http://<Public-IP>` trước, sau đó người dùng trỏ domain qua Cloudflare,
-   rồi cấu hình SSL (Certbot hoặc Cloudflare Full/Strict).
+**Việc còn thiếu / cần làm sau (không chặn việc dùng ngay):**
+- [ ] `.env` thật trên VPS — chưa xác nhận có tách secret riêng cho production (JWT secret mới,
+      không dùng lại secret dev) hay đang dùng chung. Kiểm tra lại khi có dịp.
+- [ ] Chưa có CI/CD tự động deploy khi push code mới — hiện phải tự SSH vào build/restart
+      container thủ công mỗi lần cập nhật code.
+- [ ] Backup Service cho Docker/VM (đã ghi trong `deployment-ops` skill nhưng chưa setup) — dữ
+      liệu chính vẫn nằm ở Supabase (có backup riêng của Supabase) nên rủi ro thấp hơn dự kiến
+      ban đầu.
 
 ---
 
