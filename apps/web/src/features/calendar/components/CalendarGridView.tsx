@@ -33,10 +33,17 @@ function topPx(d: Date): number {
   return (clamped / 60) * HOUR_PX;
 }
 
-/** chiều cao (px) theo thời lượng, tối thiểu MIN_BLOCK_MINUTE quy đổi. */
-function heightPx(durationMinute: number | null): number {
-  const min = durationMinute && durationMinute > 0 ? durationMinute : MIN_BLOCK_MINUTE;
-  return Math.max((min / 60) * HOUR_PX, (MIN_BLOCK_MINUTE / 60) * HOUR_PX);
+/**
+ * top + height (px) cho 1 khối, LUÔN kẹp trong biên [0, TIMELINE_HEIGHT] — event/task có
+ * `endTime`/`estimateMinute` bất thường (rất dài, hoặc lệch qua tận đêm hôm sau) sẽ không còn
+ * tràn khỏi khung 18 giờ, phá layout/kéo dài trang (bug thật gặp trên dữ liệu production).
+ */
+function blockGeometry(start: Date, durationMinute: number | null): { top: number; height: number } {
+  const top = topPx(start);
+  const rawMinute = durationMinute && durationMinute > 0 ? durationMinute : MIN_BLOCK_MINUTE;
+  const rawHeight = Math.max((rawMinute / 60) * HOUR_PX, (MIN_BLOCK_MINUTE / 60) * HOUR_PX);
+  const height = Math.min(rawHeight, TIMELINE_HEIGHT - top);
+  return { top, height };
 }
 
 export function CalendarGridView({
@@ -124,7 +131,7 @@ export function CalendarGridView({
 
               <div
                 style={{ height: TIMELINE_HEIGHT }}
-                className="relative rounded-[10px] border border-border bg-card"
+                className="relative overflow-hidden rounded-[10px] border border-border bg-card"
               >
                 {hours.map((h) => (
                   <div
@@ -140,12 +147,13 @@ export function CalendarGridView({
                   const duration = ev.endTime
                     ? (new Date(ev.endTime).getTime() - start.getTime()) / 60_000
                     : null;
+                  const { top, height } = blockGeometry(start, duration);
                   return (
                     <button
                       key={ev.id}
                       type="button"
                       onClick={() => onEditEvent(ev)}
-                      style={{ top: topPx(start), height: heightPx(duration) }}
+                      style={{ top, height }}
                       className="absolute left-1 right-1 overflow-hidden rounded-[0_6px_6px_0] border-l-[3px] border-accent-2 bg-accent-2/[0.12] px-1.5 py-0.5 text-left transition-colors hover:bg-accent-2/[0.2]"
                     >
                       <div className="truncate font-mono text-[9px] text-accent-2">
@@ -161,12 +169,13 @@ export function CalendarGridView({
                 {dayTasks.map((t) => {
                   const start = new Date(t.deadline as string);
                   const isDone = t.status === "DONE";
+                  const { top, height } = blockGeometry(start, t.estimateMinute);
                   return (
                     <button
                       key={t.id}
                       type="button"
                       onClick={() => onEditTask(t)}
-                      style={{ top: topPx(start), height: heightPx(t.estimateMinute) }}
+                      style={{ top, height }}
                       className={cn(
                         "absolute left-1 right-1 overflow-hidden rounded-[0_6px_6px_0] border-l-[3px] border-primary bg-primary/[0.1] px-1.5 py-0.5 text-left transition-colors hover:bg-primary/[0.18]",
                         isDone && "opacity-60",
