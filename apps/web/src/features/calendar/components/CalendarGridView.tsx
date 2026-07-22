@@ -153,13 +153,13 @@ export function CalendarGridView({
                       key={ev.id}
                       type="button"
                       onClick={() => onEditEvent(ev)}
-                      style={{ top, height }}
-                      className="absolute left-1 right-1 overflow-hidden rounded-[0_6px_6px_0] border-l-[3px] border-accent-2 bg-accent-2/[0.12] px-1.5 py-0.5 text-left transition-colors hover:bg-accent-2/[0.2]"
+                      style={{ top, minHeight: height }}
+                      className="absolute left-1 right-1 z-10 rounded-[0_6px_6px_0] border-l-[3px] border-accent-2 bg-accent-2/[0.12] px-1.5 py-0.5 text-left transition-colors hover:z-20 hover:bg-accent-2/[0.2]"
                     >
-                      <div className="truncate font-mono text-[9px] text-accent-2">
+                      <div className="font-mono text-[9px] text-accent-2">
                         {ev.allDay ? "Cả ngày" : formatTime(ev.startTime)}
                       </div>
-                      <div className="truncate text-[10.5px] font-medium leading-tight text-foreground">
+                      <div className="whitespace-normal break-words text-[10.5px] font-medium leading-tight text-foreground">
                         {ev.title}
                       </div>
                     </button>
@@ -175,18 +175,18 @@ export function CalendarGridView({
                       key={t.id}
                       type="button"
                       onClick={() => onEditTask(t)}
-                      style={{ top, height }}
+                      style={{ top, minHeight: height }}
                       className={cn(
-                        "absolute left-1 right-1 overflow-hidden rounded-[0_6px_6px_0] border-l-[3px] border-primary bg-primary/[0.1] px-1.5 py-0.5 text-left transition-colors hover:bg-primary/[0.18]",
+                        "absolute left-1 right-1 z-10 rounded-[0_6px_6px_0] border-l-[3px] border-primary bg-primary/[0.1] px-1.5 py-0.5 text-left transition-colors hover:z-20 hover:bg-primary/[0.18]",
                         isDone && "opacity-60",
                       )}
                     >
-                      <div className="truncate font-mono text-[9px] text-primary">
+                      <div className="font-mono text-[9px] text-primary">
                         {formatTime(t.deadline)}
                       </div>
                       <div
                         className={cn(
-                          "truncate text-[10.5px] font-medium leading-tight text-foreground",
+                          "whitespace-normal break-words text-[10.5px] font-medium leading-tight text-foreground",
                           isDone && "line-through",
                         )}
                       >

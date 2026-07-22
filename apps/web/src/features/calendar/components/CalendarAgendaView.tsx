@@ -70,7 +70,7 @@ function AgendaTaskRow({ task, onEdit }: { task: Task; onEdit: () => void }) {
   const toggleBusy = completeMut.isPending || updateMut.isPending;
 
   return (
-    <li className="flex items-center gap-3 rounded-[10px] px-2 py-[9px] transition-colors hover:bg-secondary">
+    <li className="flex items-start gap-3 rounded-[10px] px-2 py-[9px] transition-colors hover:bg-secondary">
       <button
         type="button"
         title={isDone ? "Bỏ hoàn thành" : "Hoàn thành"}
@@ -81,7 +81,7 @@ function AgendaTaskRow({ task, onEdit }: { task: Task; onEdit: () => void }) {
             : completeMut.mutate(task.id)
         }
         className={cn(
-          "flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
+          "mt-0.5 flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
           isDone
             ? "border-primary bg-primary"
             : "border-border bg-transparent hover:border-primary",
@@ -92,18 +92,18 @@ function AgendaTaskRow({ task, onEdit }: { task: Task; onEdit: () => void }) {
           strokeWidth={3}
         />
       </button>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+      <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
       <button
         type="button"
         onClick={onEdit}
         className={cn(
-          "min-w-0 flex-1 truncate text-left text-[13px] font-medium",
+          "min-w-0 flex-1 text-left text-[13px] font-medium leading-snug",
           isDone ? "text-muted-foreground line-through" : "text-foreground",
         )}
       >
         {task.title}
       </button>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+      <span className="mt-0.5 shrink-0 font-mono text-[11px] text-muted-foreground">
         {formatTime(task.deadline)}
       </span>
     </li>
@@ -122,21 +122,21 @@ function AgendaEventRow({
       <button
         type="button"
         onClick={onEdit}
-        className="flex w-full items-center gap-3 rounded-[10px] px-2 py-[9px] text-left transition-colors hover:bg-secondary"
+        className="flex w-full items-start gap-3 rounded-[10px] px-2 py-[9px] text-left transition-colors hover:bg-secondary"
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-2" aria-hidden />
+        <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent-2" aria-hidden />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="text-[13px] font-medium leading-snug text-foreground">
             {event.title}
           </div>
           {event.location && (
-            <div className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
               <MapPin className="h-3 w-3 shrink-0" />
-              {event.location}
+              <span className="break-words">{event.location}</span>
             </div>
           )}
         </div>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+        <span className="mt-0.5 shrink-0 font-mono text-[11px] text-muted-foreground">
           {event.allDay ? "Cả ngày" : formatTime(event.startTime)}
         </span>
       </button>
