@@ -7,8 +7,9 @@ import { CardLink } from "@/components/layout/CardLink";
 import { cn } from "@/lib/utils";
 import { formatDate, formatTime, isOverdue } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
-import { useCompleteTask } from "@/features/tasks/hooks/useTasks";
+import { useCompleteTask, useUpdateTask } from "@/features/tasks/hooks/useTasks";
 import { useProjects } from "@/features/projects/hooks/useProjects";
+import { useGoals } from "@/features/goals/hooks/useGoals";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useTodayTasks } from "../hooks/useTodayTasks";
 import { StatStrip } from "./StatStrip";
@@ -66,15 +67,21 @@ export function DashboardView() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading, isError, error } = useTodayTasks();
   const completeMut = useCompleteTask();
-  // Tái dùng cache Projects (React Query) để hiện tên project làm phụ đề dòng task — không thêm API mới.
+  const updateMut = useUpdateTask();
+  // Tái dùng cache Projects/Goals (React Query) để hiện TÊN GOAL làm phụ đề dòng task — không thêm
+  // API mới. Task → Project → Goal; project "Inbox" luôn trỏ goal placeholder "General" (tạo tự động
+  // lúc register, xem Gap #5 trong 02_backend_auth-task.md) — coi như "chưa gắn goal" → hiện "Cá nhân".
   const { data: projects } = useProjects();
-  const projectNameById = React.useMemo(() => {
+  const { data: goals } = useGoals();
+  const goalLabelByProjectId = React.useMemo(() => {
+    const goalTitleById = new Map((goals ?? []).map((g) => [g.id, g.title]));
     const m = new Map<string, string>();
     for (const p of projects ?? []) {
-      m.set(p.id, p.title === "Inbox" ? "Cá nhân" : p.title);
+      const goalTitle = goalTitleById.get(p.goalId);
+      m.set(p.id, !goalTitle || goalTitle === "General" ? "Cá nhân" : goalTitle);
     }
     return m;
-  }, [projects]);
+  }, [projects, goals]);
 
   const [layout, setLayout] = React.useState<Layout>("focus");
 
@@ -169,7 +176,8 @@ export function DashboardView() {
                   {data.map((task) => {
                     const isDone = task.status === "DONE";
                     const overdue = isOverdue(task.deadline);
-                    const projectLabel = projectNameById.get(task.projectId) ?? "Cá nhân";
+                    const projectLabel = goalLabelByProjectId.get(task.projectId) ?? "Cá nhân";
+                    const toggleBusy = completeMut.isPending || updateMut.isPending;
                     return (
                       <li
                         key={task.id}
@@ -177,9 +185,13 @@ export function DashboardView() {
                       >
                         <button
                           type="button"
-                          title="Hoàn thành"
-                          disabled={completeMut.isPending || isDone}
-                          onClick={() => completeMut.mutate(task.id)}
+                          title={isDone ? "Bỏ hoàn thành" : "Hoàn thành"}
+                          disabled={toggleBusy}
+                          onClick={() =>
+                            isDone
+                              ? updateMut.mutate({ id: task.id, payload: { status: "TODO" } })
+                              : completeMut.mutate(task.id)
+                          }
                           className={cn(
                             "flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
                             isDone
