@@ -8,6 +8,7 @@ import {
 import { taskService } from "../services/task.service";
 import type {
   CreateTaskPayload,
+  Task,
   TaskQuery,
   UpdateTaskPayload,
 } from "../types/task.types";
@@ -17,6 +18,26 @@ export const taskKeys = {
   list: (query: TaskQuery) => ["tasks", "list", query] as const,
   detail: (id: string) => ["tasks", "detail", id] as const,
 };
+
+const DASHBOARD_TODAY_TASKS_KEY = ["dashboard", "todayTasks"] as const;
+
+/**
+ * Cập nhật lạc quan (optimistic) cache ["dashboard","todayTasks"] TRƯỚC khi API trả lời, để nút
+ * tích/gỡ tích ở Dashboard phản hồi tức thì thay vì đợi round-trip + invalidate + refetch (cảm
+ * giác giật/chậm). onError sẽ rollback lại snapshot cũ nếu API thất bại.
+ */
+async function patchTodayTaskOptimistic(
+  qc: ReturnType<typeof useQueryClient>,
+  id: string,
+  patch: Partial<Task>,
+) {
+  await qc.cancelQueries({ queryKey: DASHBOARD_TODAY_TASKS_KEY });
+  const previous = qc.getQueryData<Task[]>(DASHBOARD_TODAY_TASKS_KEY);
+  qc.setQueryData<Task[]>(DASHBOARD_TODAY_TASKS_KEY, (old) =>
+    old?.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+  );
+  return previous;
+}
 
 export function useTaskList(query: TaskQuery) {
   return useQuery({
@@ -47,9 +68,21 @@ export function useCreateTask() {
 
 export function useUpdateTask() {
   const invalidate = useInvalidateTasks();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateTaskPayload }) =>
       taskService.update(id, payload),
+    onMutate: async ({ id, payload }) => {
+      if (!payload.status) return undefined;
+      const previous = await patchTodayTaskOptimistic(qc, id, {
+        status: payload.status,
+        completedAt: payload.status === "DONE" ? new Date().toISOString() : null,
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(DASHBOARD_TODAY_TASKS_KEY, ctx.previous);
+    },
     onSuccess: invalidate,
   });
 }
@@ -64,8 +97,19 @@ export function useDeleteTask() {
 
 export function useCompleteTask() {
   const invalidate = useInvalidateTasks();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => taskService.complete(id),
+    onMutate: async (id) => {
+      const previous = await patchTodayTaskOptimistic(qc, id, {
+        status: "DONE",
+        completedAt: new Date().toISOString(),
+      });
+      return { previous };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.previous) qc.setQueryData(DASHBOARD_TODAY_TASKS_KEY, ctx.previous);
+    },
     onSuccess: invalidate,
   });
 }

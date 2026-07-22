@@ -14,7 +14,12 @@ import type {
 
 export const goalKeys = {
   visions: ["visions"] as const,
-  goals: (visionId?: string) => ["goals", { visionId }] as const,
+  // Phải đưa CẢ visionId lẫn status vào key — nếu chỉ visionId, hai chỗ gọi useGoals() với filter
+  // khác nhau (vd. useGoals() lấy tất cả vs useGoals({status:"ACTIVE"})) sẽ ra CÙNG một queryKey,
+  // React Query coi là cùng 1 query và trộn lẫn/ghi đè kết quả của nhau (bug thật đã gặp: Dashboard
+  // "Hôm nay" hiện sai tên Goal vì bị đụng key với GoalProgressWidget/StatStrip).
+  goals: (filter?: { visionId?: string; status?: GoalStatus }) =>
+    ["goals", { visionId: filter?.visionId, status: filter?.status }] as const,
   goalProgress: (id: string) => ["goals", "progress", id] as const,
   kpis: (goalId?: string) => ["kpis", { goalId }] as const,
 };
@@ -49,7 +54,7 @@ export function useDeleteVision() {
 // ---------- GOAL ----------
 export function useGoals(filter?: { visionId?: string; status?: GoalStatus }) {
   return useQuery({
-    queryKey: goalKeys.goals(filter?.visionId),
+    queryKey: goalKeys.goals(filter),
     queryFn: () => goalService.list(filter),
   });
 }
