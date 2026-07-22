@@ -12,6 +12,14 @@ export function formatDateTime(iso: string | null): string {
   });
 }
 
+/** Chỉ giờ:phút, dùng cho danh sách task trong ngày (deadline cùng ngày không cần lặp lại ngày). */
+export function formatTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
+
 export function formatDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);

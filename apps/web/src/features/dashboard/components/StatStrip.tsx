@@ -16,11 +16,14 @@ export function StatStrip() {
   const habits = useHabitList();
   const netWorth = useNetWorth();
 
+  const totToday = today.data?.length ?? 0;
+  const doneToday = today.data?.filter((t) => t.status === "DONE").length ?? 0;
+
   const cards = [
     {
-      label: "Việc hôm nay",
-      value: today.isLoading ? "—" : String(today.data?.length ?? 0),
-      sub: "cần tập trung",
+      label: "Task hôm nay",
+      value: today.isLoading ? "—" : `${doneToday}/${totToday}`,
+      sub: today.isLoading ? "cần tập trung" : `${totToday - doneToday} việc còn lại`,
     },
     {
       label: "Mục tiêu đang chạy",

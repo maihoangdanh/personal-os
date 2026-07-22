@@ -28,7 +28,13 @@ export function useTaskList(query: TaskQuery) {
 
 function useInvalidateTasks() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: taskKeys.all });
+  return () => {
+    qc.invalidateQueries({ queryKey: taskKeys.all });
+    // Dashboard "Hôm nay" đọc task qua queryKey riêng (["dashboard", "todayTasks"]) — không nằm
+    // trong taskKeys.all nên phải invalidate riêng, nếu không nút Hoàn thành trên Dashboard bấm
+    // xong list không refetch, nhìn như không có gì xảy ra.
+    qc.invalidateQueries({ queryKey: ["dashboard", "todayTasks"] });
+  };
 }
 
 export function useCreateTask() {

@@ -1,15 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardLink } from "@/components/layout/CardLink";
-import { formatDateTime, isOverdue } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { formatDate, formatTime, isOverdue } from "@/lib/format";
 import { extractApiErrorMessage } from "@/lib/api-client";
 import { useCompleteTask } from "@/features/tasks/hooks/useTasks";
-import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "@/features/tasks/lib/status";
+import { useProjects } from "@/features/projects/hooks/useProjects";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { useTodayTasks } from "../hooks/useTodayTasks";
 import { StatStrip } from "./StatStrip";
@@ -67,6 +66,15 @@ export function DashboardView() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading, isError, error } = useTodayTasks();
   const completeMut = useCompleteTask();
+  // Tái dùng cache Projects (React Query) để hiện tên project làm phụ đề dòng task — không thêm API mới.
+  const { data: projects } = useProjects();
+  const projectNameById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projects ?? []) {
+      m.set(p.id, p.title === "Inbox" ? "Cá nhân" : p.title);
+    }
+    return m;
+  }, [projects]);
 
   const [layout, setLayout] = React.useState<Layout>("focus");
 
@@ -158,41 +166,57 @@ export function DashboardView() {
 
               {!isLoading && !isError && data && data.length > 0 && (
                 <ul className="-mx-2 flex flex-col">
-                  {data.map((task) => (
-                    <li
-                      key={task.id}
-                      className="flex items-center justify-between gap-3 rounded-[10px] px-2 py-[11px] transition-colors hover:bg-secondary"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-[13.5px] font-medium">{task.title}</div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                          <Badge variant={STATUS_BADGE_VARIANT[task.status]}>
-                            {STATUS_LABELS[task.status]}
-                          </Badge>
-                          <span>
-                            I{task.impact}·U{task.urgency}
-                          </span>
-                          <span>·</span>
-                          {isOverdue(task.deadline) ? (
-                            <span className="font-semibold text-destructive">
-                              QUÁ HẠN · {formatDateTime(task.deadline)}
-                            </span>
-                          ) : (
-                            <span>Deadline: {formatDateTime(task.deadline)}</span>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Hoàn thành"
-                        disabled={completeMut.isPending}
-                        onClick={() => completeMut.mutate(task.id)}
+                  {data.map((task) => {
+                    const isDone = task.status === "DONE";
+                    const overdue = isOverdue(task.deadline);
+                    const projectLabel = projectNameById.get(task.projectId) ?? "Cá nhân";
+                    return (
+                      <li
+                        key={task.id}
+                        className="flex items-center gap-3 rounded-[10px] px-2 py-[11px] transition-colors hover:bg-secondary"
                       >
-                        <CheckCircle2 className="h-5 w-5" />
-                      </Button>
-                    </li>
-                  ))}
+                        <button
+                          type="button"
+                          title="Hoàn thành"
+                          disabled={completeMut.isPending || isDone}
+                          onClick={() => completeMut.mutate(task.id)}
+                          className={cn(
+                            "flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
+                            isDone
+                              ? "border-primary bg-primary"
+                              : "border-border bg-transparent hover:border-primary",
+                          )}
+                        >
+                          <Check
+                            className={cn("h-3 w-3", isDone ? "text-primary-foreground" : "text-transparent")}
+                            strokeWidth={3}
+                          />
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={cn(
+                              "truncate text-[13.5px] font-medium",
+                              isDone ? "text-muted-foreground line-through" : "text-foreground",
+                            )}
+                          >
+                            {task.title}
+                          </div>
+                          <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+                            {projectLabel}
+                            {overdue && ` · quá hạn từ ${formatDate(task.deadline)}`}
+                          </div>
+                        </div>
+                        <div
+                          className={cn(
+                            "shrink-0 font-mono text-[11px]",
+                            overdue ? "font-semibold text-destructive" : "text-muted-foreground",
+                          )}
+                        >
+                          {overdue ? "QUÁ HẠN" : formatTime(task.deadline)}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </CardContent>
