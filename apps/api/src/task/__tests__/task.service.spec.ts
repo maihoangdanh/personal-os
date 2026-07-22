@@ -44,6 +44,9 @@ describe('TaskService', () => {
       findOpenTimeLog: jest.fn(),
       startTimer: jest.fn(),
       stopTimer: jest.fn(),
+      weeklyTaskCounts: jest.fn(),
+      upsertWeeklyTaskStat: jest.fn().mockResolvedValue(undefined),
+      findWeeklyTaskStat: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new TaskService(repo as any, audit as any);
@@ -205,6 +208,57 @@ describe('TaskService', () => {
       await expect(service.startTimer(userId, 'task-1')).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+  });
+
+  describe('weeklyStats', () => {
+    it('computes completionPercent and upserts this week, no previous week -> changePercent null', async () => {
+      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 3, totalCount: 6 });
+      repo.findWeeklyTaskStat.mockResolvedValue(null);
+      const res = await service.weeklyStats(userId);
+      expect(res.completedCount).toBe(3);
+      expect(res.totalCount).toBe(6);
+      expect(res.completionPercent).toBe(50);
+      expect(res.previousWeek).toBeNull();
+      expect(res.changePercent).toBeNull();
+      expect(repo.upsertWeeklyTaskStat).toHaveBeenCalledWith(
+        userId,
+        expect.any(String),
+        3,
+        6,
+      );
+    });
+
+    it('returns 0% when the week has no tasks (no division by zero)', async () => {
+      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 0, totalCount: 0 });
+      repo.findWeeklyTaskStat.mockResolvedValue(null);
+      const res = await service.weeklyStats(userId);
+      expect(res.completionPercent).toBe(0);
+    });
+
+    it('computes changePercent as the percentage-point delta vs previous week', async () => {
+      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 6, totalCount: 10 }); // 60%
+      repo.findWeeklyTaskStat.mockResolvedValue({
+        weekStart: '2026-07-13',
+        completedCount: 4,
+        totalCount: 10, // 40%
+      });
+      const res = await service.weeklyStats(userId);
+      expect(res.completionPercent).toBe(60);
+      expect(res.previousWeek).toEqual({ weekStart: '2026-07-13', completionPercent: 40 });
+      expect(res.changePercent).toBe(20); // 60 - 40
+    });
+
+    it('ignores a previous week snapshot that itself has totalCount 0', async () => {
+      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 1, totalCount: 2 });
+      repo.findWeeklyTaskStat.mockResolvedValue({
+        weekStart: '2026-07-13',
+        completedCount: 0,
+        totalCount: 0,
+      });
+      const res = await service.weeklyStats(userId);
+      expect(res.previousWeek).toBeNull();
+      expect(res.changePercent).toBeNull();
     });
   });
 });

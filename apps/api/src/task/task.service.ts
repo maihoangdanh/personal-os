@@ -14,6 +14,21 @@ import { TimeLogResponseDto } from './dto/timelog-response.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskRepository } from './task.repository';
 
+/** Monday (UTC, ISO week) of the week containing `d`. */
+function mondayOf(d: Date): Date {
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const diff = (day === 0 ? -6 : 1) - day; // days back to Monday
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+}
+
+function dateLabel(d: Date): string {
+  return d.toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 @Injectable()
 export class TaskService {
   constructor(
@@ -233,6 +248,60 @@ export class TaskService {
       metadata: { durationMinutes },
     });
     return TimeLogResponseDto.from(log);
+  }
+
+  /**
+   * Dashboard StatStrip "Hoàn thành tuần". Upserts this week's snapshot on every
+   * call (so history accumulates over time, same pattern as Net Worth trend —
+   * see _workspace/29_backend_networth-trend.md) and compares against the exact
+   * previous week's snapshot if one exists. No previous snapshot → changePercent
+   * is null (never fabricated).
+   */
+  async weeklyStats(userId: string) {
+    const now = new Date();
+    const monday = mondayOf(now);
+    const weekEnd = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+    const weekStartLabel = dateLabel(monday);
+
+    const { completedCount, totalCount } = await this.repo.weeklyTaskCounts(
+      userId,
+      monday,
+      weekEnd,
+    );
+    await this.repo.upsertWeeklyTaskStat(
+      userId,
+      weekStartLabel,
+      completedCount,
+      totalCount,
+    );
+    const completionPercent =
+      totalCount > 0 ? round1((completedCount / totalCount) * 100) : 0;
+
+    const prevMonday = new Date(monday);
+    prevMonday.setUTCDate(prevMonday.getUTCDate() - 7);
+    const prevLabel = dateLabel(prevMonday);
+    const prevStat = await this.repo.findWeeklyTaskStat(userId, prevLabel);
+
+    let previousWeek: { weekStart: string; completionPercent: number } | null = null;
+    let changePercent: number | null = null;
+    if (prevStat && prevStat.totalCount > 0) {
+      const prevPercent = round1(
+        (prevStat.completedCount / prevStat.totalCount) * 100,
+      );
+      previousWeek = { weekStart: prevStat.weekStart, completionPercent: prevPercent };
+      changePercent = round1(completionPercent - prevPercent);
+    }
+
+    return {
+      weekStart: weekStartLabel,
+      completedCount,
+      totalCount,
+      completionPercent,
+      previousWeek,
+      changePercent,
+    };
   }
 
   // ---- helpers ----

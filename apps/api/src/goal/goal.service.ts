@@ -52,24 +52,49 @@ export class GoalService {
       visionId: query.visionId,
       status: query.status,
     });
+    // Only non-KPI goals (targetValue === null) fall back to project average.
+    const nonKpiIds = items
+      .filter((g) => g.targetValue === null)
+      .map((g) => g.id);
+    const avgMap = nonKpiIds.length
+      ? await this.repo.getProjectAvgProgressByGoalIds(nonKpiIds)
+      : new Map<string, number>();
     return new Paginated(
-      items.map(GoalResponseDto.from),
+      items.map((g) =>
+        GoalResponseDto.from(
+          g,
+          g.targetValue === null ? avgMap.get(g.id) : undefined,
+        ),
+      ),
       pageMeta(query.page, query.pageSize, total),
     );
   }
 
   async get(userId: string, id: string): Promise<GoalResponseDto> {
-    return GoalResponseDto.from(await this.assertExists(id, userId));
+    const goal = await this.assertExists(id, userId);
+    const avg = await this.projectAvgForNonKpiGoal(goal.id, goal.targetValue);
+    return GoalResponseDto.from(goal, avg);
   }
 
   async getProgress(userId: string, id: string) {
     const goal = await this.assertExists(id, userId);
+    const avg = await this.projectAvgForNonKpiGoal(goal.id, goal.targetValue);
     return {
       goalId: goal.id,
       currentValue: goal.currentValue.toNumber(),
       targetValue: goal.targetValue ? goal.targetValue.toNumber() : null,
-      progress: computeGoalProgress(goal.currentValue, goal.targetValue),
+      progress: computeGoalProgress(goal.currentValue, goal.targetValue, avg),
     };
+  }
+
+  /** Average child-project progress for a non-KPI goal; undefined for KPI goals. */
+  private async projectAvgForNonKpiGoal(
+    goalId: string,
+    targetValue: Prisma.Decimal | null,
+  ): Promise<number | undefined> {
+    if (targetValue !== null) return undefined;
+    const map = await this.repo.getProjectAvgProgressByGoalIds([goalId]);
+    return map.get(goalId);
   }
 
   async update(

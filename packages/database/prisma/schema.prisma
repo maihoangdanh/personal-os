@@ -61,6 +61,7 @@ model User {
   journals          Journal[]
   refreshTokens     RefreshToken[]
   netWorthSnapshots NetWorthSnapshot[]
+  weeklyTaskStats   WeeklyTaskStat[]
 
   @@index([workspaceId])
   @@index([email])
@@ -731,4 +732,35 @@ model NetWorthSnapshot {
 
   @@unique([userId, month]) // one snapshot per user per month; also serves "latest N months of a user" (WHERE userId=? ORDER BY month DESC LIMIT N) — no separate @@index needed (would duplicate this b-tree)
   @@map("networth_snapshots")
+}
+
+// ============================================================
+// Module 018_weekly_task_stat (Dashboard StatStrip weekly completion trend)
+// ------------------------------------------------------------
+// Persists a weekly point-in-time snapshot of task completion so the Dashboard
+// StatStrip can show real week-over-week % change ("Hoàn thành tuần: X% ▲/▼ so
+// với tuần trước"). Same pattern as NetWorthSnapshot (017): completion is
+// computed at runtime; this table only stores the historical value per week for
+// comparison. One row per user per week (@@unique[userId, weekStart]); the
+// backend UPSERTS it repeatedly during the week to keep the latest value (not
+// insert-only), so `updatedAt` tracks the last recompute.
+// `weekStart` is "YYYY-MM-DD" text, always the Monday of the ISO week (backend
+// computes the Monday when upserting — no date logic here).
+// completedCount/totalCount are plain Int (counts, not money — deliberately NOT
+// Decimal, unlike NetWorthSnapshot).
+// ============================================================
+
+model WeeklyTaskStat {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  weekStart      String   @db.VarChar(10) // "YYYY-MM-DD", always the Monday of the ISO week
+  completedCount Int // tasks completed in that week
+  totalCount     Int // total tasks in that week
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, weekStart]) // one stat per user per week; also serves "previous week" + sort (WHERE userId=? ORDER BY weekStart DESC) — no separate @@index needed (would duplicate this b-tree)
+  @@map("weekly_task_stats")
 }

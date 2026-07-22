@@ -4,12 +4,22 @@ function toNum(d: Prisma.Decimal | null): number | null {
   return d === null ? null : d.toNumber();
 }
 
-/** progress = min(100, current/target*100). 0 when target is null/0. */
+/**
+ * Hybrid progress:
+ * - KPI goal (targetValue != null): unchanged, min(100, current/target*100).
+ * - Non-KPI goal (targetValue === null): average progress of child projects
+ *   when provided; 0 otherwise.
+ */
 export function computeGoalProgress(
   currentValue: Prisma.Decimal,
   targetValue: Prisma.Decimal | null,
+  projectAvgProgress?: number,
 ): number {
-  const target = targetValue === null ? 0 : targetValue.toNumber();
+  if (targetValue === null) {
+    if (projectAvgProgress === undefined) return 0;
+    return Math.min(100, Math.round(projectAvgProgress * 100) / 100);
+  }
+  const target = targetValue.toNumber();
   if (target <= 0) return 0;
   const pct = (currentValue.toNumber() / target) * 100;
   return Math.min(100, Math.round(pct * 100) / 100);
@@ -28,14 +38,14 @@ export class GoalResponseDto {
   createdAt!: string;
   updatedAt!: string;
 
-  static from(g: Goal): GoalResponseDto {
+  static from(g: Goal, projectAvgProgress?: number): GoalResponseDto {
     return {
       id: g.id,
       visionId: g.visionId,
       title: g.title,
       targetValue: toNum(g.targetValue),
       currentValue: g.currentValue.toNumber(),
-      progress: computeGoalProgress(g.currentValue, g.targetValue),
+      progress: computeGoalProgress(g.currentValue, g.targetValue, projectAvgProgress),
       deadline: g.deadline ? g.deadline.toISOString().slice(0, 10) : null,
       status: g.status,
       createdAt: g.createdAt.toISOString(),

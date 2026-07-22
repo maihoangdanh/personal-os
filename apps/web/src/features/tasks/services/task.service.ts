@@ -8,6 +8,7 @@ import type {
   TaskQuery,
   TimeLog,
   UpdateTaskPayload,
+  WeeklyTaskStats,
 } from "../types/task.types";
 
 /** Lớp DUY NHẤT gọi API task. Unwrap envelope; list lấy cả `data` (mảng) + `meta` (phân trang). */
@@ -54,6 +55,11 @@ export const taskService = {
 
   async stopTimer(id: string): Promise<TimeLog> {
     const res = await apiClient.post<ApiEnvelope<TimeLog>>(`/tasks/${id}/timer/stop`);
+    return res.data.data;
+  },
+
+  async weeklyStats(): Promise<WeeklyTaskStats> {
+    const res = await apiClient.get<ApiEnvelope<WeeklyTaskStats>>("/tasks/weekly-stats");
     return res.data.data;
   },
 };

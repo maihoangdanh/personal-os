@@ -117,3 +117,13 @@ export interface TaskDeleteResult {
   id: string;
   deleted: true;
 }
+
+/** GET /tasks/weekly-stats response data — Dashboard StatStrip "Hoàn thành tuần". */
+export interface WeeklyTaskStats {
+  weekStart: string; // "YYYY-MM-DD", thứ 2 đầu tuần
+  completedCount: number;
+  totalCount: number;
+  completionPercent: number; // 0 khi totalCount = 0
+  previousWeek: { weekStart: string; completionPercent: number } | null;
+  changePercent: number | null; // điểm phần trăm chênh lệch so với tuần trước; null nếu chưa có dữ liệu
+}

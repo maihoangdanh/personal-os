@@ -33,6 +33,13 @@ export class TaskController {
     return this.tasks.create(user.userId, dto);
   }
 
+  /** Must be registered BEFORE @Get(':id') — otherwise "weekly-stats" gets
+   *  swallowed by the :id param route and fails ParseUUIDPipe with a 400. */
+  @Get('weekly-stats')
+  weeklyStats(@CurrentUser() user: AuthUser) {
+    return this.tasks.weeklyStats(user.userId);
+  }
+
   @Get(':id')
   get(
     @CurrentUser() user: AuthUser,

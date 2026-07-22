@@ -73,4 +73,29 @@ export class GoalRepository {
   countActiveProjects(goalId: string): Promise<number> {
     return prisma.project.count({ where: { goalId, deletedAt: null } });
   }
+
+  /**
+   * Average Project.progress per goal, in one query (avoids N+1 across a list).
+   * Returns a map with an entry for every requested goalId — 0 when the goal
+   * has no (non-deleted) projects.
+   */
+  async getProjectAvgProgressByGoalIds(
+    goalIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (goalIds.length === 0) return result;
+
+    const rows = await prisma.project.groupBy({
+      by: ['goalId'],
+      where: { goalId: { in: goalIds }, deletedAt: null },
+      _avg: { progress: true },
+    });
+    for (const row of rows) {
+      result.set(row.goalId, row._avg.progress?.toNumber() ?? 0);
+    }
+    for (const id of goalIds) {
+      if (!result.has(id)) result.set(id, 0);
+    }
+    return result;
+  }
 }

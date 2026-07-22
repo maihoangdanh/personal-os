@@ -1,44 +1,64 @@
 "use client";
 
-import { formatCurrency } from "@/lib/format";
-import { useNetWorth } from "@/features/finance/hooks/useFinance";
-import { useGoals } from "@/features/goals/hooks/useGoals";
-import { useHabitList } from "@/features/habit/hooks/useHabits";
+import { useFinanceReport } from "@/features/finance/hooks/useFinance";
+import { useLongestHabitStreak } from "../hooks/useLongestHabitStreak";
 import { useTodayTasks } from "../hooks/useTodayTasks";
+import { useWeeklyStats } from "../hooks/useWeeklyStats";
+
+/** Ngưỡng tham khảo cố định (không phải mục tiêu người dùng tự đặt) — benchmark tỉ lệ tiết kiệm lành mạnh. */
+const SAVING_RATE_BENCHMARK = 40;
 
 /**
- * Stat strip 4 ô (mockup). TÁI DÙNG các hook đã có sẵn trên dashboard (cùng queryKey → React Query
- * chia sẻ cache, KHÔNG thêm API call mới). Chỉ hiển thị số dẫn xuất — không đổi logic.
+ * Stat strip 4 ô: Task hôm nay / Streak dài nhất / Hoàn thành tuần / Tỷ lệ tiết kiệm.
+ * TÁI DÙNG hook đã có (useTodayTasks, useFinanceReport) + 2 hook mới dùng data thật
+ * (useLongestHabitStreak, useWeeklyStats — xem _workspace/33, /34). Không số liệu giả.
  */
 export function StatStrip() {
   const today = useTodayTasks();
-  const goals = useGoals({ status: "ACTIVE" });
-  const habits = useHabitList();
-  const netWorth = useNetWorth();
+  const streak = useLongestHabitStreak();
+  const weekly = useWeeklyStats();
+  const report = useFinanceReport();
 
   const totToday = today.data?.length ?? 0;
   const doneToday = today.data?.filter((t) => t.status === "DONE").length ?? 0;
+
+  const savingRate = report.data?.savingRatePercent;
+  const savingSub =
+    savingRate == null
+      ? ""
+      : savingRate >= SAVING_RATE_BENCHMARK
+        ? `vượt mục tiêu ${SAVING_RATE_BENCHMARK}%`
+        : `dưới mục tiêu ${SAVING_RATE_BENCHMARK}%`;
+
+  const changePercent = weekly.data?.changePercent;
+  const hasChange = changePercent !== null && changePercent !== undefined;
 
   const cards = [
     {
       label: "Task hôm nay",
       value: today.isLoading ? "—" : `${doneToday}/${totToday}`,
       sub: today.isLoading ? "cần tập trung" : `${totToday - doneToday} việc còn lại`,
+      subClass: "text-muted-foreground",
     },
     {
-      label: "Mục tiêu đang chạy",
-      value: goals.isLoading ? "—" : String(goals.data?.length ?? 0),
-      sub: "đang theo dõi",
+      label: "Streak dài nhất",
+      value: streak.isLoading ? "—" : `${streak.data?.currentStreak ?? 0} ngày`,
+      sub: streak.isLoading ? "" : (streak.data?.habitName ?? "Chưa có habit nào"),
+      subClass: "text-warning",
     },
     {
-      label: "Thói quen",
-      value: habits.isLoading ? "—" : String(habits.data?.length ?? 0),
-      sub: "đang duy trì",
+      label: "Hoàn thành tuần",
+      value: weekly.isLoading ? "—" : `${weekly.data?.completionPercent ?? 0}%`,
+      sub: hasChange
+        ? `${changePercent! >= 0 ? "▲" : "▼"} ${changePercent! >= 0 ? "+" : ""}${changePercent}% so với tuần trước`
+        : "",
+      subClass: hasChange && changePercent! >= 0 ? "text-success" : "text-destructive",
     },
     {
-      label: "Tài sản ròng",
-      value: netWorth.isLoading ? "—" : formatCurrency(netWorth.data?.netWorth ?? 0),
-      sub: "tổng ví · đầu tư · tài sản",
+      label: "Tỷ lệ tiết kiệm",
+      value: report.isLoading ? "—" : `${savingRate ?? 0}%`,
+      sub: savingSub,
+      subClass: savingRate != null && savingRate >= SAVING_RATE_BENCHMARK ? "text-success" : "text-muted-foreground",
     },
   ];
 
@@ -55,7 +75,7 @@ export function StatStrip() {
           <div className="mt-1.5 truncate font-serif text-[26px] font-semibold" title={c.value}>
             {c.value}
           </div>
-          <div className="mt-0.5 text-[11.5px] text-muted-foreground">{c.sub}</div>
+          <div className={`mt-0.5 text-[11.5px] ${c.subClass}`}>{c.sub}</div>
         </div>
       ))}
     </div>

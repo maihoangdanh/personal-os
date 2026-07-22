@@ -5,6 +5,7 @@ import {
   Task,
   TaskStatus,
   TimeLog,
+  WeeklyTaskStat,
 } from '@personal-os/database';
 import {
   persistMilestoneCompletion,
@@ -219,6 +220,57 @@ export class TaskRepository {
     return prisma.timeLog.update({
       where: { id },
       data: { endTime, durationMinutes },
+    });
+  }
+
+  // ---- Weekly completion stat (Dashboard StatStrip) ----
+
+  /**
+   * Tasks "belonging to" a week = deadline in range OR completedAt in range
+   * (same inclusion rule as the frontend's "today" widget, scaled to a week).
+   * ARCHIVED is excluded — same rationale as elsewhere (no longer an open/live item).
+   */
+  async weeklyTaskCounts(
+    userId: string,
+    weekStart: Date,
+    weekEnd: Date,
+  ): Promise<{ completedCount: number; totalCount: number }> {
+    const where: Prisma.TaskWhereInput = {
+      deletedAt: null,
+      status: { not: TaskStatus.ARCHIVED },
+      ...ownedByUser(userId),
+      OR: [
+        { deadline: { gte: weekStart, lte: weekEnd } },
+        { completedAt: { gte: weekStart, lte: weekEnd } },
+      ],
+    };
+    const [totalCount, completedCount] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.count({ where: { ...where, status: TaskStatus.DONE } }),
+    ]);
+    return { completedCount, totalCount };
+  }
+
+  /** Upsert this week's snapshot — keeps the latest count as the week progresses. */
+  upsertWeeklyTaskStat(
+    userId: string,
+    weekStart: string,
+    completedCount: number,
+    totalCount: number,
+  ): Promise<WeeklyTaskStat> {
+    return prisma.weeklyTaskStat.upsert({
+      where: { userId_weekStart: { userId, weekStart } },
+      create: { userId, weekStart, completedCount, totalCount },
+      update: { completedCount, totalCount },
+    });
+  }
+
+  findWeeklyTaskStat(
+    userId: string,
+    weekStart: string,
+  ): Promise<WeeklyTaskStat | null> {
+    return prisma.weeklyTaskStat.findUnique({
+      where: { userId_weekStart: { userId, weekStart } },
     });
   }
 }
