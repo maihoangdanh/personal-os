@@ -10,6 +10,7 @@ import { extractApiErrorMessage } from "@/lib/api-client";
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime-input";
 import {
   useCreateCalendarEvent,
+  useDeleteCalendarEvent,
   useUpdateCalendarEvent,
 } from "../hooks/useCalendarEvents";
 import type {
@@ -33,6 +34,7 @@ export function CalendarEventFormDialog({
   const isEdit = !!event;
   const createMut = useCreateCalendarEvent();
   const updateMut = useUpdateCalendarEvent();
+  const deleteMut = useDeleteCalendarEvent();
   const [error, setError] = React.useState<string | null>(null);
 
   const [form, setForm] = React.useState({
@@ -68,7 +70,17 @@ export function CalendarEventFormDialog({
     }
   }, [open, event]);
 
-  const submitting = createMut.isPending || updateMut.isPending;
+  const submitting = createMut.isPending || updateMut.isPending || deleteMut.isPending;
+
+  async function handleDelete() {
+    if (!event) return;
+    try {
+      await deleteMut.mutateAsync(event.id);
+      onOpenChange(false);
+    } catch (err) {
+      setError(extractApiErrorMessage(err));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -204,21 +216,36 @@ export function CalendarEventFormDialog({
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
-            Huỷ
-          </Button>
-          <Button
-            type="submit"
-            disabled={submitting || !form.title.trim() || !form.startTime}
-          >
-            {submitting ? "Đang lưu..." : isEdit ? "Lưu" : "Tạo"}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-2">
+          {isEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleDelete}
+              disabled={submitting}
+            >
+              {deleteMut.isPending ? "Đang xoá..." : "Xoá sự kiện"}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting || !form.title.trim() || !form.startTime}
+            >
+              {submitting ? "Đang lưu..." : isEdit ? "Lưu" : "Tạo"}
+            </Button>
+          </div>
         </div>
       </form>
     </Dialog>

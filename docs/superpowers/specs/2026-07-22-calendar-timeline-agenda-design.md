@@ -1,7 +1,24 @@
 # Calendar: trục giờ + Agenda view (thiết kế)
 
-Trạng thái: **Thiết kế đã trình bày, đang chờ duyệt** — dừng lại theo yêu cầu người dùng để tiếp
-tục sau, CHƯA viết implementation plan, CHƯA code.
+Trạng thái: **✅ Đã code xong** (2026-07-22, tiếp tục từ phiên trước). Đi thẳng theo 4 quyết định
+"để ngỏ" ở dưới bằng phương án mặc định đã đề xuất sẵn trong chính spec này (không hỏi lại thêm
+vòng nào) — xác nhận với người dùng sau khi xong, sẵn sàng chỉnh nếu sai:
+- Trục giờ 6:00–24:00 (giữ nguyên đề xuất).
+- Task không `estimateMinute` → khối tối thiểu quy đổi 30 phút (áp dụng luôn cho Event không
+  `endTime`, cùng logic).
+- Không làm kéo-thả (giữ đúng mặc định NO).
+- View mặc định "Lưới", có lưu lựa chọn cuối vào `localStorage` (`personal-os:calendar-view`).
+
+**1 điểm cần xác nhận lại** — dải "không giờ" cho task đang mở không deadline: spec viết "trên
+cùng **mỗi cột ngày**" (gợi ý lặp lại per-column), nhưng lặp y hệt 1 danh sách 7 lần rõ ràng dư
+thừa/khó hiểu — đã implement thành **1 dải chung duy nhất phía trên toàn bộ lưới 7 cột** (như hàng
+"cả ngày" kiểu Google Calendar). Đổi lại nếu ý định ban đầu khác.
+
+Verify: build production sạch (17 route, không tăng thêm), typecheck sạch, đối chiếu tay công thức
+vị trí/chiều cao khối qua `getComputedStyle` trên dữ liệu giả (không có mật khẩu thật để login
+qua UI thật) — khớp chính xác từng px với công thức thiết kế. Task DONE hiện đúng mờ 60% +
+gạch ngang; Agenda đúng: ngày rỗng hiện "· không có task", item sort theo giờ, task không deadline
+bị loại khỏi Agenda, toggle Hoàn thành/Bỏ hoàn thành đúng theo status.
 
 Nguồn: brainstorm trực tiếp với người dùng trong phiên 2026-07-22 (sau khi hoàn tất Dashboard
 StatStrip + NetWorthWidget + Goal progress hybrid).
