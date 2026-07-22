@@ -5,10 +5,9 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import {
-  clearTokens,
+  clearAccessToken,
   getAccessToken,
-  getRefreshToken,
-  setTokens,
+  setAccessToken,
 } from "./auth-storage";
 
 /**
@@ -42,6 +41,9 @@ export const API_BASE_URL =
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
+  // Gửi kèm cookie httpOnly `refreshToken` (backend set) cho mọi request auth
+  // (`/auth/refresh`, `/auth/logout`). Backend đã bật CORS credentials: true.
+  withCredentials: true,
 });
 
 // --- Request interceptor: gắn Bearer accessToken ---
@@ -59,19 +61,25 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // AccessToken TTL 15m. Khi hết hạn backend trả 401; ta gọi /auth/refresh một lần rồi retry.
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+/**
+ * Đổi cookie httpOnly `refreshToken` lấy accessToken mới, lưu in-memory, trả token mới.
+ * KHÔNG gửi body — backend đọc refreshToken từ cookie (gửi body sẽ bị 400). Response chỉ
+ * còn `data.tokens.accessToken` (refreshToken nằm trong cookie mới do backend rotate).
+ * Thất bại (không cookie / cookie hết hạn / revoked → 401) → trả null.
+ * Export để bootstrap phiên lúc F5 (AuthGate / app/page.tsx).
+ */
+export async function refreshAccessToken(): Promise<string | null> {
   try {
     // Dùng axios raw (không qua apiClient) để tránh đệ quy interceptor.
+    // withCredentials để cookie refreshToken được gửi kèm.
     const res = await axios.post<ApiEnvelope<{ tokens: RefreshedTokens }>>(
       `${API_BASE_URL}/auth/refresh`,
-      { refreshToken },
-      { headers: { "Content-Type": "application/json" } },
+      undefined,
+      { withCredentials: true },
     );
     const tokens = res.data?.data?.tokens;
-    if (tokens?.accessToken && tokens?.refreshToken) {
-      setTokens(tokens.accessToken, tokens.refreshToken);
+    if (tokens?.accessToken) {
+      setAccessToken(tokens.accessToken);
       return tokens.accessToken;
     }
     return null;
@@ -82,7 +90,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
 interface RefreshedTokens {
   accessToken: string;
-  refreshToken: string;
   tokenType: string;
   expiresIn: string;
 }
@@ -94,16 +101,18 @@ apiClient.interceptors.response.use(
       | (InternalAxiosRequestConfig & { _retried?: boolean })
       | undefined;
 
-    const isAuthEndpoint =
+    // /auth/refresh: tránh đệ quy. /auth/login: 401 là sai mật khẩu, không phải
+    // access token hết hạn → không thử refresh (giữ nguyên lỗi cho form login).
+    const skipRefreshRetry =
       typeof original?.url === "string" &&
-      original.url.includes("/auth/refresh");
+      (original.url.includes("/auth/refresh") ||
+        original.url.includes("/auth/login"));
 
     if (
       error.response?.status === 401 &&
       original &&
       !original._retried &&
-      !isAuthEndpoint &&
-      getRefreshToken()
+      !skipRefreshRetry
     ) {
       original._retried = true;
       // Gộp nhiều request 401 đồng thời vào một lần refresh.
@@ -120,7 +129,7 @@ apiClient.interceptors.response.use(
         return apiClient(original);
       }
       // Refresh thất bại → session hết hạn thật sự.
-      clearTokens();
+      clearAccessToken();
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }

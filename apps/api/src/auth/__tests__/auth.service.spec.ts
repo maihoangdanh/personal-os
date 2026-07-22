@@ -14,6 +14,10 @@ type MockRepo = {
   createUserWithWorkspace: jest.Mock;
   countActiveUsers: jest.Mock;
   update: jest.Mock;
+  createRefreshToken: jest.Mock;
+  findRefreshTokenByHash: jest.Mock;
+  revokeRefreshTokenById: jest.Mock;
+  revokeRefreshTokenByHash: jest.Mock;
 };
 
 const makeUser = (over: Partial<any> = {}) => ({
@@ -44,6 +48,10 @@ describe('AuthService', () => {
       createUserWithWorkspace: jest.fn(),
       countActiveUsers: jest.fn().mockResolvedValue(0),
       update: jest.fn(),
+      createRefreshToken: jest.fn().mockResolvedValue({}),
+      findRefreshTokenByHash: jest.fn(),
+      revokeRefreshTokenById: jest.fn().mockResolvedValue(undefined),
+      revokeRefreshTokenByHash: jest.fn().mockResolvedValue(undefined),
     };
     jwt = {
       signAsync: jest.fn().mockResolvedValue('signed.token'),
@@ -139,6 +147,100 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'nobody@test.com', password: 'x' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('token store on issue', () => {
+    it('persists a SHA-256 (64 hex) refresh-token hash on login', async () => {
+      const passwordHash = await bcrypt.hash('password123', 4);
+      repo.findByEmail.mockResolvedValue(makeUser({ passwordHash }));
+
+      await service.login({ email: 'owner@test.com', password: 'password123' });
+
+      expect(repo.createRefreshToken).toHaveBeenCalledTimes(1);
+      const arg = repo.createRefreshToken.mock.calls[0][0];
+      expect(arg.userId).toBe('user-1');
+      expect(arg.tokenHash).toMatch(/^[0-9a-f]{64}$/); // sha256 hex
+      expect(arg.tokenHash).not.toBe('signed.token'); // hashed, not plaintext
+      expect(arg.expiresAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('refresh (rotation)', () => {
+    const validRecord = {
+      id: 'rt-1',
+      userId: 'user-1',
+      tokenHash: 'hash',
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+    };
+
+    it('rotates: revokes the old token and mints a new pair', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+      repo.findRefreshTokenByHash.mockResolvedValue(validRecord);
+      repo.findById.mockResolvedValue(makeUser());
+
+      const res = await service.refresh('some.refresh.jwt');
+
+      expect(repo.revokeRefreshTokenById).toHaveBeenCalledWith('rt-1');
+      expect(repo.createRefreshToken).toHaveBeenCalledTimes(1); // new record
+      expect(res.tokens.accessToken).toBe('signed.token');
+    });
+
+    it('rejects a missing cookie/token with 401', async () => {
+      await expect(service.refresh(undefined)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(jwt.verifyAsync).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the token is not in the store (401)', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+      repo.findRefreshTokenByHash.mockResolvedValue(null);
+      await expect(service.refresh('x')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(repo.revokeRefreshTokenById).not.toHaveBeenCalled();
+    });
+
+    it('rejects a revoked token (401)', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+      repo.findRefreshTokenByHash.mockResolvedValue({
+        ...validRecord,
+        revokedAt: new Date(),
+      });
+      await expect(service.refresh('x')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejects an expired token (401)', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+      repo.findRefreshTokenByHash.mockResolvedValue({
+        ...validRecord,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      await expect(service.refresh('x')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the token by hash and returns loggedOut', async () => {
+      const res = await service.logout('some.refresh.jwt');
+      expect(repo.revokeRefreshTokenByHash).toHaveBeenCalledTimes(1);
+      expect(repo.revokeRefreshTokenByHash.mock.calls[0][0]).toMatch(
+        /^[0-9a-f]{64}$/,
+      );
+      expect(res).toEqual({ loggedOut: true });
+    });
+
+    it('is a no-op when no cookie is present', async () => {
+      const res = await service.logout(undefined);
+      expect(repo.revokeRefreshTokenByHash).not.toHaveBeenCalled();
+      expect(res).toEqual({ loggedOut: true });
     });
   });
 

@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { prisma, Prisma, User, UserRole } from '@personal-os/database';
+import {
+  prisma,
+  Prisma,
+  RefreshToken,
+  User,
+  UserRole,
+} from '@personal-os/database';
 
 export interface CreateUserWithWorkspaceInput {
   email: string;
@@ -28,6 +34,38 @@ export class AuthRepository {
 
   update(id: string, data: Prisma.UserUncheckedUpdateInput): Promise<User> {
     return prisma.user.update({ where: { id }, data });
+  }
+
+  // --- Refresh token store (revocable sessions) ---
+
+  /** Persist the SHA-256 hash of a freshly issued refresh token. */
+  createRefreshToken(input: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<RefreshToken> {
+    return prisma.refreshToken.create({ data: input });
+  }
+
+  /** Lookup by hash (unique index) — used on refresh/logout. */
+  findRefreshTokenByHash(tokenHash: string): Promise<RefreshToken | null> {
+    return prisma.refreshToken.findUnique({ where: { tokenHash } });
+  }
+
+  /** Revoke a single token by id (used during rotation). No-op if already revoked. */
+  async revokeRefreshTokenById(id: string): Promise<void> {
+    await prisma.refreshToken.updateMany({
+      where: { id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Revoke by hash (used on logout). Silent if not found or already revoked. */
+  async revokeRefreshTokenByHash(tokenHash: string): Promise<void> {
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**

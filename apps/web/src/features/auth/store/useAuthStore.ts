@@ -3,8 +3,9 @@ import type { AuthUser } from "../types/auth.types";
 
 /**
  * Client state cho auth: chỉ giữ thông tin user hiện tại + trạng thái hydrate.
- * Token KHÔNG giữ ở đây — token nằm ở localStorage (lib/auth-storage.ts) để interceptor
- * axios đọc được ngoài React. Server state (task, dashboard) đi qua React Query.
+ * Token KHÔNG giữ ở đây — accessToken nằm in-memory (lib/auth-storage.ts) để interceptor
+ * axios đọc được ngoài React; refreshToken do backend quản qua httpOnly cookie.
+ * Server state (task, dashboard) đi qua React Query.
  */
 interface AuthState {
   user: AuthUser | null;

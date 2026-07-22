@@ -3,11 +3,20 @@ import './load-test-env'; // populate env before @personal-os/database loads
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { prisma } from '@personal-os/database';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/http/all-exceptions.filter';
 import { ResponseInterceptor } from '../src/common/http/response.interceptor';
 import { seedUser } from './seed-user';
+
+/** Pull the refreshToken=... cookie string out of a Set-Cookie header. */
+function refreshCookie(res: request.Response): string {
+  const raw = res.headers['set-cookie'] as unknown as string[] | undefined;
+  const cookie = (raw ?? []).find((c) => c.startsWith('refreshToken='));
+  if (!cookie) throw new Error('no refreshToken cookie in response');
+  return cookie.split(';')[0]; // "refreshToken=<jwt>"
+}
 
 /**
  * Full-slice integration test against the REAL Supabase DB:
@@ -29,6 +38,7 @@ describe('Auth + Task (e2e)', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
@@ -107,6 +117,76 @@ describe('Auth + Task (e2e)', () => {
 
   it('rejects /tasks without a token (401)', async () => {
     await request(app.getHttpServer()).get('/api/v1/tasks').expect(401);
+  });
+
+  // Cookie-flow tests share ONE login (auth/login is rate-limited to 5/min/IP,
+  // and the suite already spends several logins elsewhere).
+  let flowCookie: string; // latest VALID refresh cookie
+  let flowAccess: string; // access token from the latest refresh
+
+  it('login sets an httpOnly refreshToken cookie and omits it from the body', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200);
+
+    // body has accessToken but NOT refreshToken (it lives in the cookie now)
+    expect(res.body.data.tokens.accessToken).toBeDefined();
+    expect(res.body.data.tokens.refreshToken).toBeUndefined();
+
+    const setCookie = (res.headers['set-cookie'] as unknown as string[]) ?? [];
+    const rt = setCookie.find((c) => c.startsWith('refreshToken='))!;
+    expect(rt).toBeDefined();
+    expect(rt.toLowerCase()).toContain('httponly');
+    expect(rt).toContain('Path=/api/v1/auth');
+    expect(rt.toLowerCase()).toContain('samesite=lax');
+
+    flowCookie = refreshCookie(res);
+    flowAccess = res.body.data.tokens.accessToken;
+  });
+
+  it('refresh reads the cookie, rotates the token, and rejects the old one', async () => {
+    // refresh WITHOUT a body — token comes only from the cookie
+    const refreshed = await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', flowCookie)
+      .expect(200);
+    expect(refreshed.body.data.tokens.accessToken).toBeDefined();
+    expect(refreshed.body.data.tokens.refreshToken).toBeUndefined();
+    const rotated = refreshCookie(refreshed);
+    expect(rotated).not.toBe(flowCookie); // rotated
+
+    // the OLD (rotated-out) cookie is now rejected — replay defence
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', flowCookie)
+      .expect(401);
+
+    flowCookie = rotated; // only the rotated cookie is valid now
+    flowAccess = refreshed.body.data.tokens.accessToken;
+  });
+
+  it('refresh without any cookie -> 401', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .expect(401);
+  });
+
+  it('logout revokes the current token and clears the cookie', async () => {
+    const out = await request(app.getHttpServer())
+      .post('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${flowAccess}`)
+      .set('Cookie', flowCookie)
+      .expect(200);
+    expect(out.body.data.loggedOut).toBe(true);
+    const cleared = (out.headers['set-cookie'] as unknown as string[]) ?? [];
+    expect(cleared.some((c) => c.startsWith('refreshToken='))).toBe(true);
+
+    // the revoked token can no longer be refreshed
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', flowCookie)
+      .expect(401);
   });
 
   it('PATCH /auth/me updates name/timezone (not email/role)', async () => {

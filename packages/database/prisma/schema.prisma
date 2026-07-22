@@ -44,21 +44,22 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt    DateTime? @db.Timestamptz(6)
 
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  visions        Vision[]
-  tags           Tag[]
-  attachments    Attachment[]
-  habits         Habit[]
-  calendarEvents CalendarEvent[]
-  wallets        Wallet[]
-  budgets        Budget[]
-  investments    Investment[]
-  assets         Asset[]
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  visions         Vision[]
+  tags            Tag[]
+  attachments     Attachment[]
+  habits          Habit[]
+  calendarEvents  CalendarEvent[]
+  wallets         Wallet[]
+  budgets         Budget[]
+  investments     Investment[]
+  assets          Asset[]
   notifications   Notification[]
   activityLogs    ActivityLog[]
   aiConversations AiConversation[]
   aiSummaries     AiSummary[]
   journals        Journal[]
+  refreshTokens   RefreshToken[]
 
   @@index([workspaceId])
   @@index([email])
@@ -197,19 +198,19 @@ enum TaskStatus {
 }
 
 model Task {
-  id            String     @id @default(uuid()) @db.Uuid
-  projectId     String     @db.Uuid
-  parentTaskId  String?    @db.Uuid
-  milestoneId   String?    @db.Uuid // optional grouping under a Milestone (doc 02: "Task của Milestone")
-  title         String     @db.VarChar(255)
-  description   String?    @db.Text
-  impact        Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
-  urgency       Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
-  priorityScore Int?       @db.SmallInt // computed by backend (calculate_priority)
+  id             String     @id @default(uuid()) @db.Uuid
+  projectId      String     @db.Uuid
+  parentTaskId   String?    @db.Uuid
+  milestoneId    String?    @db.Uuid // optional grouping under a Milestone (doc 02: "Task của Milestone")
+  title          String     @db.VarChar(255)
+  description    String?    @db.Text
+  impact         Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  urgency        Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  priorityScore  Int?       @db.SmallInt // computed by backend (calculate_priority)
   status         TaskStatus @default(TODO)
   deadline       DateTime?  @db.Timestamptz(6)
   completedAt    DateTime?  @db.Timestamptz(6) // set when status -> DONE (Business Rule doc 02)
-  estimateMinute Int?       // estimated effort in minutes; app validates >= 0 (doc 02). spentMinute derived from TimeLog.
+  estimateMinute Int? // estimated effort in minutes; app validates >= 0 (doc 02). spentMinute derived from TimeLog.
   createdAt      DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt      DateTime?  @db.Timestamptz(6)
@@ -667,4 +668,33 @@ model Journal {
   @@unique([userId, date]) // one journal entry per user per day
   @@index([userId])
   @@map("journals")
+}
+
+// ============================================================
+// Module 016_refresh_token (auth hardening — stateful refresh tokens)
+// ------------------------------------------------------------
+// Makes refresh tokens revocable so a leaked token can be killed before its
+// 7d TTL expires (previously refresh was stateless JWT — no revoke possible).
+// Store ONLY the SHA-256 hash of the token, never the plaintext (backend hashes
+// before insert/compare). One User can hold MANY active tokens at once (multiple
+// devices/tabs) — intentionally NOT a 1-1 relation with User.
+// Deliberately NO deletedAt/updatedAt: this is ephemeral session state, not user
+// data to preserve (like TaskTag). `revokedAt` marks invalidation; expired rows
+// are hard-cleaned by a cleanup job. onDelete: Cascade — deleting a User drops
+// their tokens (they carry no standalone value once the owner is gone).
+// ============================================================
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(64) // SHA-256 hex digest of the refresh token (lookup on refresh)
+  expiresAt DateTime  @db.Timestamptz(6) // mirrors JWT_REFRESH_TTL (7d); used for cleanup + expiry check
+  revokedAt DateTime? @db.Timestamptz(6) // null = still valid; set on logout/revoke
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }

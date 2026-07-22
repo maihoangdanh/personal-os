@@ -1,41 +1,28 @@
 /**
- * Token storage cho SPA gọi API riêng (apps/api).
+ * Access token storage cho SPA gọi API riêng (apps/api).
  *
- * TRADE-OFF (đọc kỹ): token lưu ở localStorage.
- * - Ưu: đơn giản, hoạt động ngay với API cross-origin (localhost:3001) mà không cần
- *   server-side session/cookie same-site; đủ cho MVP Phase 1.
- * - Nhược: dễ bị đánh cắp qua XSS (script độc đọc được localStorage). Backend hiện phát hành
- *   JWT stateless không revoke được (Gap #6 trong 02_backend_auth-task.md) nên token bị lộ chỉ
- *   hết hiệu lực khi hết hạn (access 15m, refresh 7d).
- * - Hướng nâng cấp khi lên production: chuyển refreshToken sang httpOnly Secure SameSite cookie
- *   do backend set, chỉ giữ accessToken trong memory. Cần backend hỗ trợ cookie + CSRF.
+ * accessToken được giữ **in-memory** (biến module-level, KHÔNG localStorage) để:
+ * - axios interceptor đọc được ngoài React (getAccessToken).
+ * - chống XSS: script độc không đọc được token từ localStorage.
+ *
+ * refreshToken KHÔNG còn ở frontend — backend phát hành qua httpOnly cookie
+ * (tên `refreshToken`, path `/api/v1/auth`), tự gửi kèm khi gọi `/auth/*`. Frontend
+ * không cần và không thể biết giá trị refreshToken.
+ *
+ * Hệ quả: accessToken mất khi F5/mở tab mới (chỉ in-memory). Bootstrap lại phiên
+ * bằng cách gọi `POST /auth/refresh` lúc mount (cookie tự gửi) — xem AuthGate / app/page.tsx.
  */
 
-const ACCESS_KEY = "personal_os.accessToken";
-const REFRESH_KEY = "personal_os.refreshToken";
+let accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_KEY);
+  return accessToken;
 }
 
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(REFRESH_KEY);
+export function setAccessToken(token: string): void {
+  accessToken = token;
 }
 
-export function setTokens(accessToken: string, refreshToken: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACCESS_KEY, accessToken);
-  window.localStorage.setItem(REFRESH_KEY, refreshToken);
-}
-
-export function clearTokens(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACCESS_KEY);
-  window.localStorage.removeItem(REFRESH_KEY);
-}
-
-export function hasTokens(): boolean {
-  return !!getAccessToken();
+export function clearAccessToken(): void {
+  accessToken = null;
 }

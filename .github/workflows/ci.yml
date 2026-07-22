@@ -1,0 +1,138 @@
+name: CI/CD
+
+# Runs on every push and PR to main.
+# - CI job: lint / typecheck / test / build (both apps + prisma client). Runs on PR AND push.
+# - Deploy job: SSH into the Oracle Cloud VPS and rebuild ONLY the changed Docker service.
+#   Runs on direct push to main only (never on PR), and only after CI is green.
+#
+# Node 20 is pinned to match the runtime: root package.json "engines.node" is ">=20"
+# and both Dockerfiles use node:20-bookworm-slim. No .nvmrc exists in the repo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint / Typecheck / Test / Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (npm workspaces, root)
+        run: npm ci
+
+      # apps/api compiles against the generated Prisma client (@personal-os/database).
+      # Generate it before typechecking/building the API, exactly like Dockerfile.api does.
+      - name: Generate Prisma client
+        run: npm run generate -w @personal-os/database
+
+      # apps/api has no dedicated typecheck script; its "build" IS the tsc pass
+      # (tsc -p tsconfig.build.json), so building it is the typecheck.
+      - name: Typecheck API (tsc build)
+        run: npm run build -w @personal-os/api
+
+      - name: Typecheck Web (tsc --noEmit)
+        run: npm run typecheck -w @personal-os/web
+
+      # Only apps/web defines a lint script (next lint). apps/api has none, so no API lint step.
+      - name: Lint Web
+        run: npm run lint -w @personal-os/web
+
+      # Unit tests only. e2e (test:e2e) is intentionally NOT run in CI: it needs a real
+      # Supabase connection (secret DATABASE_URL) and points at live data — running it here
+      # risks touching production data if the wrong connection string is used. e2e stays a
+      # manual step (npm run test:e2e -w @personal-os/api) against a throwaway DB when needed.
+      - name: Unit tests (API)
+        run: npm test -w @personal-os/api
+
+      # next build catches build-time errors before we ever ship to the VPS.
+      # NEXT_PUBLIC_API_URL mirrors the value baked in by docker-compose.yml / Dockerfile.web.
+      - name: Build Web (next build)
+        run: npm run build -w @personal-os/web
+        env:
+          NEXT_PUBLIC_API_URL: /api/v1
+
+  deploy:
+    name: Deploy to Oracle Cloud VPS
+    needs: ci
+    # Deploy ONLY on a real push to main. Never on pull_request.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy (rebuild only the changed service)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Fail the step if any command in the script exits non-zero.
+          script_stop: true
+          script: |
+            set -e
+            cd /home/ubuntu/app
+
+            # Diff is computed on the VPS between the previous and new HEAD (not GitHub's
+            # event.before, which is all-zeros on some pushes) so the changed-path logic
+            # is always reliable.
+            BEFORE=$(git rev-parse HEAD)
+            git pull origin main
+            AFTER=$(git rev-parse HEAD)
+
+            if [ "$BEFORE" = "$AFTER" ]; then
+              echo "No new commits pulled; nothing to deploy."
+              exit 0
+            fi
+
+            CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+            echo "Changed files:"
+            echo "$CHANGED"
+
+            DEPLOY_WEB=false
+            DEPLOY_API=false
+            # web:  apps/web/**  or  Dockerfile.web
+            if echo "$CHANGED" | grep -qE '^(apps/web/|Dockerfile\.web)'; then
+              DEPLOY_WEB=true
+            fi
+            # api:  apps/api/**  or  Dockerfile.api  or  packages/database/**
+            if echo "$CHANGED" | grep -qE '^(apps/api/|Dockerfile\.api|packages/database/)'; then
+              DEPLOY_API=true
+            fi
+
+            if [ "$DEPLOY_WEB" = "false" ] && [ "$DEPLOY_API" = "false" ]; then
+              echo "Only non-app files changed (docs / _workspace / PLAN.md / etc.). Skipping build & deploy."
+              exit 0
+            fi
+
+            if [ "$DEPLOY_API" = "true" ]; then
+              echo "== API changed: rebuilding personal-os-api =="
+              docker compose build api
+              docker compose up -d api
+            fi
+
+            if [ "$DEPLOY_WEB" = "true" ]; then
+              echo "== Web changed: rebuilding personal-os-web =="
+              docker compose build web
+              docker compose up -d web
+            fi
+
+            # Give the recreated container(s) a moment to come up, then verify through
+            # the real public URL (Nginx -> container). Non-200 fails the job loudly.
+            echo "Verifying https://task.hoangdanh.cloud/dashboard ..."
+            sleep 5
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://task.hoangdanh.cloud/dashboard)
+            echo "HTTP status: $CODE"
+            if [ "$CODE" != "200" ]; then
+              echo "Deploy verification FAILED (expected 200, got $CODE)"
+              exit 1
+            fi
+            echo "Deploy verified OK (200)."

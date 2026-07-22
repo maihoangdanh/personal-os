@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@personal-os/database';
 import * as bcrypt from 'bcryptjs';
+import { createHash } from 'crypto';
 import {
   AccessTokenPayload,
   RefreshTokenPayload,
@@ -20,8 +21,14 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ttlToMs } from './refresh-cookie';
 
 const BCRYPT_ROUNDS = 12;
+
+/** SHA-256 hex digest — refresh tokens are high-entropy, no salt/bcrypt needed. */
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 @Injectable()
 export class AuthService {
@@ -83,8 +90,16 @@ export class AuthService {
     return this.buildAuthResult(user);
   }
 
-  /** Stateless refresh: verify the refresh JWT and mint a fresh token pair. */
-  async refresh(refreshToken: string): Promise<AuthResultDto> {
+  /**
+   * Rotating refresh: verify the JWT, confirm the token still exists in the store
+   * and is neither revoked nor expired, then revoke it and mint a fresh pair
+   * (rotation defeats replay of a stolen/leaked refresh token).
+   */
+  async refresh(refreshToken: string | undefined): Promise<AuthResultDto> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     let payload: RefreshTokenPayload;
     try {
       payload = await this.jwt.verifyAsync<RefreshTokenPayload>(refreshToken, {
@@ -94,11 +109,31 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    const record = await this.repo.findRefreshTokenByHash(
+      hashRefreshToken(refreshToken),
+    );
+    if (!record || record.revokedAt || record.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     const user = await this.repo.findById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+
+    await this.repo.revokeRefreshTokenById(record.id);
     return this.buildAuthResult(user);
+  }
+
+  /**
+   * Revoke the caller's refresh token (found via the httpOnly cookie). Silent if
+   * no/unknown token so logout is always idempotent.
+   */
+  async logout(refreshToken: string | undefined): Promise<{ loggedOut: true }> {
+    if (refreshToken) {
+      await this.repo.revokeRefreshTokenByHash(hashRefreshToken(refreshToken));
+    }
+    return { loggedOut: true };
   }
 
   async me(userId: string): Promise<UserProfileDto> {
@@ -160,10 +195,23 @@ export class AuthService {
 
   private async buildAuthResult(user: User): Promise<AuthResultDto> {
     const tokens = await this.signTokens(user);
+    // Store the hash so this refresh token can later be verified + revoked.
+    await this.repo.createRefreshToken({
+      userId: user.id,
+      tokenHash: hashRefreshToken(tokens.refreshToken),
+      expiresAt: new Date(Date.now() + this.refreshTtlMs()),
+    });
     return { user: UserProfileDto.from(user), tokens };
   }
 
-  private async signTokens(user: User): Promise<TokensDto> {
+  /** Refresh-token lifetime in ms, parsed from JWT_REFRESH_TTL (matches cookie maxAge). */
+  private refreshTtlMs(): number {
+    return ttlToMs(this.config.get<string>('JWT_REFRESH_TTL', '7d'));
+  }
+
+  private async signTokens(
+    user: User,
+  ): Promise<TokensDto & { refreshToken: string }> {
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
       email: user.email,

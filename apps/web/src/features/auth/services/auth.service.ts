@@ -38,7 +38,8 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    // Stateless (Gap #6): server chỉ trả { loggedOut: true }, client tự huỷ token.
+    // Backend revoke refresh token trong DB (revokedAt) + clearCookie (doc 25).
+    // Cookie tự gửi kèm (withCredentials). Trả { loggedOut: true }.
     await apiClient.post<ApiEnvelope<{ loggedOut: boolean }>>("/auth/logout");
   },
 };

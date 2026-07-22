@@ -3,6 +3,7 @@ import './load-env'; // MUST be first — populates env before @personal-os/data
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/http/all-exceptions.filter';
@@ -14,6 +15,7 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
+  app.use(cookieParser()); // parse refresh-token httpOnly cookie into req.cookies
   app.enableCors({
     origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
     credentials: true,

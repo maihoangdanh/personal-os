@@ -17,9 +17,9 @@ export interface AuthUser {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
   tokenType: "Bearer";
   expiresIn: string; // "15m"
+  // refreshToken KHÔNG còn ở body — backend phát hành qua httpOnly cookie (doc 25).
 }
 
 /** data trả về cho POST /auth/register và POST /auth/login */

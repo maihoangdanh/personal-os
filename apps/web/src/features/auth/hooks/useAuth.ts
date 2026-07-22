@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { clearTokens, setTokens } from "@/lib/auth-storage";
+import { clearAccessToken, setAccessToken } from "@/lib/auth-storage";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "../store/useAuthStore";
 import type {
@@ -18,7 +18,8 @@ export function useLogin() {
   return useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
     onSuccess: (result) => {
-      setTokens(result.tokens.accessToken, result.tokens.refreshToken);
+      // accessToken giữ in-memory; refreshToken do backend set qua httpOnly cookie.
+      setAccessToken(result.tokens.accessToken);
       setUser(result.user);
       router.replace("/dashboard");
     },
@@ -41,14 +42,17 @@ export function useChangePassword() {
   });
 }
 
-/** Đăng xuất → gọi API stateless (best-effort) → xoá token → về /login. */
+/**
+ * Đăng xuất → gọi API `/auth/logout` (backend revoke refresh token trong DB + clear cookie)
+ * → xoá accessToken in-memory → về /login. Dùng onSettled để dù API lỗi vẫn xoá state local.
+ */
 export function useLogout() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
     mutationFn: () => authService.logout(),
     onSettled: () => {
-      clearTokens();
+      clearAccessToken();
       setUser(null);
       router.replace("/login");
     },

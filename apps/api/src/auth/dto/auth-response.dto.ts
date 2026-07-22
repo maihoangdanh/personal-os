@@ -25,7 +25,12 @@ export class UserProfileDto {
 
 export class TokensDto {
   accessToken!: string;
-  refreshToken!: string;
+  /**
+   * Only present internally (service → controller). It is stripped from the JSON
+   * response body and delivered to the client via an httpOnly cookie instead, so
+   * API consumers should treat it as absent.
+   */
+  refreshToken?: string;
   tokenType!: 'Bearer';
   expiresIn!: string;
 }
