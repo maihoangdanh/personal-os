@@ -173,4 +173,8 @@ export interface NetWorth {
   walletTotal: number;
   investmentTotal: number;
   assetTotal: number;
+  // Thêm bởi backend (_workspace/29) — optional, giữ nguyên 4 field cũ ở trên.
+  previousMonth?: { month: string; netWorth: number } | null; // null nếu chưa có snapshot tháng trước
+  changePercent?: number | null; // (cur−prev)/prev×100, làm tròn 1 chữ số. null khi không có prev hoặc prev=0
+  history?: Array<{ month: string; netWorth: number }>; // ≤12, tăng dần theo month, KHÔNG pad (có thể chỉ 1 phần tử)
 }

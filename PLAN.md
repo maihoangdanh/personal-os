@@ -84,7 +84,7 @@ visual.
 ### Hạ tầng / DevOps
 - [x] ✅ Chạy local trực tiếp (không Docker), Supabase Postgres
 - [x] ✅ Repo GitHub đồng bộ (`github.com/maihoangdanh/personal-os`)
-- [ ] ❌ CI/CD pipeline (lint/test/build tự động)
+- [x] ✅ CI/CD pipeline (lint/test/build tự động) — hoàn tất 2026-07-22, xem mục "Deploy Oracle Cloud"
 - [x] ✅ **Deploy Oracle Cloud VPS — hoàn tất (2026-07-22)**, xem chi tiết mục "Deploy Oracle Cloud" ngay dưới
 
 ## Deploy Oracle Cloud ✅ Hoàn tất (2026-07-22)
@@ -193,7 +193,14 @@ với người dùng (xem BACKLOG.md).
 - [x] ✅ Frontend: Budget progress bar (đỏ khi vượt ngân sách)
 - [x] ✅ Frontend: Investment + Asset CRUD UI
 - [x] ✅ Frontend: Report page + Net Worth breakdown — verify live bằng số tiền cụ thể
-- [x] ✅ Dashboard: NetWorthWidget
+- [x] ✅ Dashboard: NetWorthWidget — redesign 2026-07-22 (theo mockup thật): tiêu đề "Tài sản ròng",
+      badge % thay đổi so với tháng trước + mini bar chart lịch sử. Model `NetWorthSnapshot` mới
+      (migration `017`, unique `[userId,month]`) — mỗi lần gọi `GET /finance/net-worth` upsert
+      snapshot tháng hiện tại, tự tích luỹ lịch sử theo thời gian (không cron/backfill). Response
+      thêm `previousMonth`/`changePercent`/`history` (optional, `null`/mảng rỗng khi chưa đủ dữ liệu
+      — KHÔNG bịa số, khác mockup gốc `design/Personal OS.dc.html` dùng data giả cố định). Unit
+      **119/119 pass**, verify curl thật trên Supabase (user mới → history 1 phần tử, có snapshot
+      tháng trước → changePercent tính đúng).
 - [x] ✅ 4 tab Giao dịch/Ngân sách/Đầu tư/Tài sản — verify live qua browser thật; phát hiện + fix 1 bug thật (tạo Investment/Asset xong list không refresh do thiếu invalidate cache — build/typecheck không bắt được, chỉ lộ khi click thật)
 - [ ] ⏸️ Report dùng stat card thay vì pie chart — rút gọn có chủ đích
 

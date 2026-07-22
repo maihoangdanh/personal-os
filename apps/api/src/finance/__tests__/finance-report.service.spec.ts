@@ -2,10 +2,22 @@ import { FinanceReportService } from '../finance-report.service';
 
 describe('FinanceReportService', () => {
   let service: FinanceReportService;
-  let repo: { monthlyTotals: jest.Mock; netWorth: jest.Mock };
+  let repo: {
+    monthlyTotals: jest.Mock;
+    netWorth: jest.Mock;
+    upsertNetWorthSnapshot: jest.Mock;
+    netWorthSnapshotForMonth: jest.Mock;
+    netWorthHistory: jest.Mock;
+  };
 
   beforeEach(() => {
-    repo = { monthlyTotals: jest.fn(), netWorth: jest.fn() };
+    repo = {
+      monthlyTotals: jest.fn(),
+      netWorth: jest.fn(),
+      upsertNetWorthSnapshot: jest.fn().mockResolvedValue(undefined),
+      netWorthSnapshotForMonth: jest.fn().mockResolvedValue(null),
+      netWorthHistory: jest.fn().mockResolvedValue([]),
+    };
     service = new FinanceReportService(repo as any);
   });
 
@@ -44,5 +56,93 @@ describe('FinanceReportService', () => {
     });
     const res = await service.netWorth('u1');
     expect(res.netWorth).toBe(5200.01);
+  });
+
+  it('upserts a snapshot for the current UTC month', async () => {
+    repo.netWorth.mockResolvedValue({
+      netWorth: 1000,
+      walletTotal: 1000,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    await service.netWorth('u1');
+    const now = new Date();
+    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    expect(repo.upsertNetWorthSnapshot).toHaveBeenCalledWith('u1', month, {
+      netWorth: 1000,
+      walletTotal: 1000,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+  });
+
+  it('returns null previousMonth/changePercent when no prior snapshot exists', async () => {
+    repo.netWorth.mockResolvedValue({
+      netWorth: 1000,
+      walletTotal: 1000,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    repo.netWorthSnapshotForMonth.mockResolvedValue(null);
+    const res = await service.netWorth('u1');
+    expect(res.previousMonth).toBeNull();
+    expect(res.changePercent).toBeNull();
+  });
+
+  it('computes MoM changePercent rounded to 1 decimal when prior snapshot exists', async () => {
+    repo.netWorth.mockResolvedValue({
+      netWorth: 1068,
+      walletTotal: 1068,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    repo.netWorthSnapshotForMonth.mockResolvedValue({ month: '2026-06', netWorth: 1000 });
+    const res = await service.netWorth('u1');
+    // (1068 - 1000) / 1000 * 100 = 6.8
+    expect(res.previousMonth).toEqual({ month: '2026-06', netWorth: 1000 });
+    expect(res.changePercent).toBe(6.8);
+  });
+
+  it('changePercent is null when previous net worth is 0 (no divide-by-zero)', async () => {
+    repo.netWorth.mockResolvedValue({
+      netWorth: 500,
+      walletTotal: 500,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    repo.netWorthSnapshotForMonth.mockResolvedValue({ month: '2026-06', netWorth: 0 });
+    const res = await service.netWorth('u1');
+    expect(res.changePercent).toBeNull();
+  });
+
+  it('queries the previous month accounting for the January year rollover', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-15T00:00:00.000Z'));
+    repo.netWorth.mockResolvedValue({
+      netWorth: 100,
+      walletTotal: 100,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    await service.netWorth('u1');
+    expect(repo.netWorthSnapshotForMonth).toHaveBeenCalledWith('u1', '2025-12');
+    expect(repo.upsertNetWorthSnapshot).toHaveBeenCalledWith('u1', '2026-01', expect.anything());
+    jest.useRealTimers();
+  });
+
+  it('passes history through in repository order (oldest → newest)', async () => {
+    repo.netWorth.mockResolvedValue({
+      netWorth: 300,
+      walletTotal: 300,
+      investmentTotal: 0,
+      assetTotal: 0,
+    });
+    const series = [
+      { month: '2026-05', netWorth: 100 },
+      { month: '2026-06', netWorth: 200 },
+      { month: '2026-07', netWorth: 300 },
+    ];
+    repo.netWorthHistory.mockResolvedValue(series);
+    const res = await service.netWorth('u1');
+    expect(res.history).toEqual(series);
   });
 });

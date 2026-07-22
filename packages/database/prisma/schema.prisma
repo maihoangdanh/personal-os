@@ -44,22 +44,23 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt    DateTime? @db.Timestamptz(6)
 
-  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  visions         Vision[]
-  tags            Tag[]
-  attachments     Attachment[]
-  habits          Habit[]
-  calendarEvents  CalendarEvent[]
-  wallets         Wallet[]
-  budgets         Budget[]
-  investments     Investment[]
-  assets          Asset[]
-  notifications   Notification[]
-  activityLogs    ActivityLog[]
-  aiConversations AiConversation[]
-  aiSummaries     AiSummary[]
-  journals        Journal[]
-  refreshTokens   RefreshToken[]
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  visions           Vision[]
+  tags              Tag[]
+  attachments       Attachment[]
+  habits            Habit[]
+  calendarEvents    CalendarEvent[]
+  wallets           Wallet[]
+  budgets           Budget[]
+  investments       Investment[]
+  assets            Asset[]
+  notifications     Notification[]
+  activityLogs      ActivityLog[]
+  aiConversations   AiConversation[]
+  aiSummaries       AiSummary[]
+  journals          Journal[]
+  refreshTokens     RefreshToken[]
+  netWorthSnapshots NetWorthSnapshot[]
 
   @@index([workspaceId])
   @@index([email])
@@ -697,4 +698,37 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// ============================================================
+// Module 017_networth_snapshot (Dashboard Net Worth trend)
+// ------------------------------------------------------------
+// Persists a monthly point-in-time snapshot of Net Worth so the Dashboard can
+// show real month-over-month % change + a 12-month trend chart (the design
+// mockup's "+6.8% vs last month" badge + bar chart were hardcoded fakes with no
+// API behind them). Net Worth itself is computed at runtime from Wallet/
+// Investment/Asset (see _workspace/11_database_finance.md §6); this table only
+// stores the historical value per month.
+// One row per user per month (@@unique[userId, month]); the backend UPSERTS it
+// repeatedly during the month to keep the latest value (not insert-only), so
+// `updatedAt` tracks the last recompute. `month` is "YYYY-MM" text.
+// Money fields use Decimal(18,2) — identical to Wallet.balance /
+// Investment.currentValue / Asset.value so totals stay unit/precision-consistent.
+// ============================================================
+
+model NetWorthSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  month           String   @db.VarChar(7) // "YYYY-MM"
+  netWorth        Decimal  @db.Decimal(18, 2) // Σ walletTotal + investmentTotal + assetTotal at snapshot time
+  walletTotal     Decimal  @db.Decimal(18, 2) // Σ Wallet.balance
+  investmentTotal Decimal  @db.Decimal(18, 2) // Σ Investment.currentValue
+  assetTotal      Decimal  @db.Decimal(18, 2) // Σ Asset.value
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, month]) // one snapshot per user per month; also serves "latest N months of a user" (WHERE userId=? ORDER BY month DESC LIMIT N) — no separate @@index needed (would duplicate this b-tree)
+  @@map("networth_snapshots")
 }
