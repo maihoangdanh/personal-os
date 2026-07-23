@@ -12,7 +12,13 @@ import type {
 
 export const projectKeys = {
   all: ["projects"] as const,
-  list: (goalId?: string) => ["projects", "list", { goalId }] as const,
+  // Phải đưa CẢ goalId lẫn status vào key — nếu chỉ goalId, hai chỗ gọi useProjects() với filter
+  // khác nhau (vd. useProjects() lấy tất cả vs useProjects({status:"ACTIVE"})) sẽ ra CÙNG một
+  // queryKey, React Query coi là cùng 1 query và trộn lẫn/ghi đè kết quả của nhau (bug thật đã gặp:
+  // Dashboard "Hôm nay" hiện sai tên Project vì bị đụng key với ProjectsProgressWidget — cùng loại
+  // bug đã sửa cho Goals, xem goalKeys.goals trong features/goals/hooks/useGoals.ts).
+  list: (filter?: { goalId?: string; status?: ProjectStatus }) =>
+    ["projects", "list", { goalId: filter?.goalId, status: filter?.status }] as const,
   detail: (id: string) => ["projects", "detail", id] as const,
   milestones: (projectId: string) => ["milestones", { projectId }] as const,
 };
@@ -20,7 +26,7 @@ export const projectKeys = {
 // ---------- PROJECT ----------
 export function useProjects(filter?: { goalId?: string; status?: ProjectStatus }) {
   return useQuery({
-    queryKey: projectKeys.list(filter?.goalId),
+    queryKey: projectKeys.list(filter),
     queryFn: () => projectService.list(filter),
   });
 }
