@@ -787,8 +787,8 @@ model RecurringTaskTemplate {
   projectId         String              @db.Uuid
   title             String              @db.VarChar(255)
   description       String?             @db.Text
-  impact            Int                 @db.SmallInt
-  urgency           Int                 @db.SmallInt
+  impact            Int                 @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  urgency           Int                 @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
   estimateMinute    Int?
   frequency         RecurrenceFrequency
   weekDays          Int[] // ISO weekday 1=T2..7=CN; rỗng khi frequency=DAILY
