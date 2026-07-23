@@ -26,6 +26,7 @@ export interface Task {
   projectId: string;
   parentTaskId: string | null;
   milestoneId: string | null; // Phase 2: gom task dưới 1 Milestone (cùng project), optional
+  recurringTemplateId: string | null; // set khi Task này được sinh tự động từ 1 chuỗi lặp
   title: string;
   description: string | null;
   impact: number; // 1..5
@@ -126,4 +127,37 @@ export interface WeeklyTaskStats {
   completionPercent: number; // 0 khi totalCount = 0
   previousWeek: { weekStart: string; completionPercent: number } | null;
   changePercent: number | null; // điểm phần trăm chênh lệch so với tuần trước; null nếu chưa có dữ liệu
+}
+
+export const RECURRENCE_FREQUENCIES = ["DAILY", "WEEKLY"] as const;
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
+
+/** POST /recurring-tasks payload */
+export interface CreateRecurringTaskPayload {
+  title: string;
+  description?: string;
+  impact: number;
+  urgency: number;
+  estimateMinute?: number;
+  projectId: string;
+  frequency: RecurrenceFrequency;
+  weekDays?: number[]; // ISO weekday 1=T2..7=CN; bắt buộc khi frequency=WEEKLY
+  timeOfDay?: string; // "HH:mm"
+}
+
+/** RecurringTaskTemplateResponseDto */
+export interface RecurringTaskTemplate {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  impact: number;
+  urgency: number;
+  estimateMinute: number | null;
+  frequency: RecurrenceFrequency;
+  weekDays: number[];
+  timeOfDay: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
