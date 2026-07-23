@@ -21,6 +21,7 @@ import { KpiModule } from './kpi/kpi.module';
 import { MilestoneModule } from './milestone/milestone.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProjectModule } from './project/project.module';
+import { RecurringTaskModule } from './recurring-task/recurring-task.module';
 import { TaskModule } from './task/task.module';
 import { TransactionModule } from './transaction/transaction.module';
 import { VisionModule } from './vision/vision.module';
@@ -41,6 +42,7 @@ import { WalletModule } from './wallet/wallet.module';
     GoalModule,
     KpiModule,
     ProjectModule,
+    RecurringTaskModule,
     MilestoneModule,
     WalletModule,
     TransactionModule,
