@@ -49,6 +49,21 @@ visual.
 - [x] ✅ Backend: CRUD, soft delete, complete, timer start/stop (+ `isTimerRunning`/`activeTimeLogId`), `priorityScore` = impact×urgency, `completedAt`, `estimateMinute`, `spentMinute` (tổng TimeLog, tính runtime), TaskStatus 6 trạng thái (INBOX/TODO/DOING/REVIEW/DONE/ARCHIVED, không state-machine cứng — Kanban kéo-thả tự do)
 - [x] ✅ Frontend: danh sách task (hiện cả estimateMinute + spentMinute), tạo/sửa, filter theo status, nút toggle timer, Eisenhower Matrix (4 ô Do Now/Schedule/Delegate/Ignore) — verify live: timer chạy 70s → UI hiện đúng "Đã làm: 1 phút"
 - [ ] ⏸️ Ngưỡng phân loại Eisenhower (`impact/urgency >= 3` = "cao") là suy luận, chưa xác nhận bằng dữ liệu dùng thật. *(Xem BACKLOG.md)*
+- [x] ✅ **Task lặp lại (Recurring Task) — hoàn tất (2026-07-23)**: model `RecurringTaskTemplate`
+      (migration 019) tách biệt khỏi Task — mỗi kỳ sinh 1 Task instance ĐỘC LẬP (giữ
+      impact/urgency/timer/completedAt riêng, không dùng chung 1 Task reset status). Hỗ trợ
+      DAILY + WEEKLY (chọn thứ). Cron 1 lần/ngày (`apps/api/src/recurring-task/recurring-task.scheduler.ts`,
+      `@Cron('10 0 * * *')`): archive instance quá hạn chưa DONE, sinh instance hôm nay nếu lịch
+      khớp. `POST /recurring-tasks` (tạo, sinh luôn instance đầu nếu khớp hôm nay — không đợi cron),
+      `POST /recurring-tasks/:id/stop` (dừng lặp, action-style khớp convention `/tasks/:id/complete`).
+      UI: mở rộng `TaskFormDialog` — mục "Lặp lại" khi tạo mới, nút "Dừng lặp" khi sửa task đã sinh
+      từ 1 chuỗi. Quy trình: brainstorm → spec → plan → Subagent-Driven Development (3 task, mỗi
+      task qua implementer + spec-review + code-quality-review). Phát hiện + fix 1 bug thật khi
+      review (lệch múi giờ UTC/local ở `lastGeneratedDate` có thể sinh trùng task nếu cron chạy lại
+      cùng ngày) + 2 vấn đề nhỏ (lỗi validate bị nuốt mất message, thiếu invalidate cache Dashboard
+      "Hôm nay"). Backend **137/137 unit test pass**. Spec:
+      `docs/superpowers/specs/2026-07-23-recurring-task-design.md`, Plan:
+      `docs/superpowers/plans/2026-07-23-recurring-task.md`.
 
 ### Habit Tracker
 - [x] ✅ Backend: CRUD habit, checkin (HabitLog, unique theo ngày), streak tính động từ HabitLog (không lưu cột)
