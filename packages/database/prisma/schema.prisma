@@ -158,9 +158,10 @@ model Project {
   updatedAt DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt DateTime?     @db.Timestamptz(6)
 
-  goal       Goal        @relation(fields: [goalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  milestones Milestone[]
-  tasks      Task[]
+  goal                   Goal                    @relation(fields: [goalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  milestones             Milestone[]
+  tasks                  Task[]
+  recurringTaskTemplates RecurringTaskTemplate[]
 
   @@index([goalId])
   @@index([status])
@@ -200,31 +201,33 @@ enum TaskStatus {
 }
 
 model Task {
-  id             String     @id @default(uuid()) @db.Uuid
-  projectId      String     @db.Uuid
-  parentTaskId   String?    @db.Uuid
-  milestoneId    String?    @db.Uuid // optional grouping under a Milestone (doc 02: "Task của Milestone")
-  title          String     @db.VarChar(255)
-  description    String?    @db.Text
-  impact         Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
-  urgency        Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
-  priorityScore  Int?       @db.SmallInt // computed by backend (calculate_priority)
-  status         TaskStatus @default(TODO)
-  deadline       DateTime?  @db.Timestamptz(6)
-  completedAt    DateTime?  @db.Timestamptz(6) // set when status -> DONE (Business Rule doc 02)
-  estimateMinute Int? // estimated effort in minutes; app validates >= 0 (doc 02). spentMinute derived from TimeLog.
-  createdAt      DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
-  deletedAt      DateTime?  @db.Timestamptz(6)
+  id                  String     @id @default(uuid()) @db.Uuid
+  projectId           String     @db.Uuid
+  parentTaskId        String?    @db.Uuid
+  milestoneId         String?    @db.Uuid // optional grouping under a Milestone (doc 02: "Task của Milestone")
+  recurringTemplateId String?    @db.Uuid // set khi Task này được sinh tự động từ 1 chuỗi lặp
+  title               String     @db.VarChar(255)
+  description         String?    @db.Text
+  impact              Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  urgency             Int        @db.SmallInt // 1-5 (CHECK enforced at app layer, see notes)
+  priorityScore       Int?       @db.SmallInt // computed by backend (calculate_priority)
+  status              TaskStatus @default(TODO)
+  deadline            DateTime?  @db.Timestamptz(6)
+  completedAt         DateTime?  @db.Timestamptz(6) // set when status -> DONE (Business Rule doc 02)
+  estimateMinute      Int? // estimated effort in minutes; app validates >= 0 (doc 02). spentMinute derived from TimeLog.
+  createdAt           DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?  @db.Timestamptz(6)
 
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  parentTask  Task?        @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  subTasks    Task[]       @relation("TaskSubtasks")
-  milestone   Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  checklists  Checklist[]
-  timeLogs    TimeLog[]
-  taskTags    TaskTag[]
-  attachments Attachment[]
+  project           Project                @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  recurringTemplate RecurringTaskTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  parentTask        Task?                  @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  subTasks          Task[]                 @relation("TaskSubtasks")
+  milestone         Milestone?             @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  checklists        Checklist[]
+  timeLogs          TimeLog[]
+  taskTags          TaskTag[]
+  attachments       Attachment[]
 
   @@index([projectId])
   @@index([parentTaskId])
@@ -763,4 +766,42 @@ model WeeklyTaskStat {
 
   @@unique([userId, weekStart]) // one stat per user per week; also serves "previous week" + sort (WHERE userId=? ORDER BY weekStart DESC) — no separate @@index needed (would duplicate this b-tree)
   @@map("weekly_task_stats")
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+}
+
+// ============================================================
+// Module 019_recurring_task (Task lặp lại: hàng ngày / hàng tuần)
+// ------------------------------------------------------------
+// "Khuôn" của chuỗi lặp — tách biệt hoàn toàn khỏi Task. Mỗi kỳ, backend sinh
+// 1 Task instance ĐỘC LẬP (giữ impact/urgency/timer/completedAt riêng từng
+// ngày) thay vì tái sử dụng 1 Task duy nhất — xem spec
+// docs/superpowers/specs/2026-07-23-recurring-task-design.md.
+// ============================================================
+
+model RecurringTaskTemplate {
+  id                String              @id @default(uuid()) @db.Uuid
+  projectId         String              @db.Uuid
+  title             String              @db.VarChar(255)
+  description       String?             @db.Text
+  impact            Int                 @db.SmallInt
+  urgency           Int                 @db.SmallInt
+  estimateMinute    Int?
+  frequency         RecurrenceFrequency
+  weekDays          Int[] // ISO weekday 1=T2..7=CN; rỗng khi frequency=DAILY
+  timeOfDay         String?             @db.VarChar(5) // "HH:mm"; null = không giờ cụ thể
+  active            Boolean             @default(true)
+  lastGeneratedDate DateTime?           @db.Date
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime?           @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tasks   Task[]
+
+  @@index([active])
+  @@map("recurring_task_templates")
 }
