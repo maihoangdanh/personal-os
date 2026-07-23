@@ -13,9 +13,20 @@ import { RecurringTaskRepository } from './recurring-task.repository';
 const DEFAULT_DEADLINE_HOUR = 23;
 const DEFAULT_DEADLINE_MINUTE = 59;
 
-function dateLabel(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/**
+ * UTC midnight representing "today" by LOCAL calendar date — matches how Postgres
+ * `@db.Date` truncates DateTime values (UTC), so a value stored here reads back
+ * byte-identical from Prisma and can be compared with `isSameDate` without ever
+ * re-deriving local-vs-UTC labels. Storing/comparing `lastGeneratedDate` on two
+ * different bases (local labels vs UTC-truncated column) risked double-generating
+ * a task on a same-day rerun near midnight — see code review 2026-07-23.
+ */
+function todayAsUtcDateOnly(now: Date): Date {
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+function isSameDate(a: Date, b: Date): boolean {
+  return a.getTime() === b.getTime();
 }
 
 /** ISO weekday of `d`: 1=Mon..7=Sun (JS getDay() is 0=Sun..6=Sat). */
@@ -92,15 +103,16 @@ export class RecurringTaskService {
   async maybeGenerateToday(
     template: RecurringTaskTemplate,
   ): Promise<RecurringTaskTemplate | null> {
-    const today = new Date();
-    if (template.lastGeneratedDate && dateLabel(template.lastGeneratedDate) === dateLabel(today)) {
+    const now = new Date();
+    const today = todayAsUtcDateOnly(now);
+    if (template.lastGeneratedDate && isSameDate(template.lastGeneratedDate, today)) {
       return null; // đã sinh hôm nay rồi
     }
-    if (!this.matchesToday(template, today)) {
+    if (!this.matchesToday(template, now)) {
       return null;
     }
 
-    const deadline = this.computeDeadline(template, today);
+    const deadline = this.computeDeadline(template, now);
     await this.taskRepo.create({
       projectId: template.projectId,
       title: template.title,

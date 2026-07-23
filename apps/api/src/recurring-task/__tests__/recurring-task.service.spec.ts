@@ -88,10 +88,20 @@ describe('RecurringTaskService', () => {
     });
 
     it('does not generate twice on the same day', async () => {
-      const today = new Date();
-      const tpl = makeTemplate({ lastGeneratedDate: today });
+      // lastGeneratedDate stored the same way the service stores it (UTC-midnight
+      // matching Postgres @db.Date truncation) — see recurring-task.service.ts.
+      const now = new Date();
+      const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const tpl = makeTemplate({ lastGeneratedDate: todayDateOnly });
       await service.maybeGenerateToday(tpl as any);
       expect(taskRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('generates when lastGeneratedDate is a different UTC-midnight day', async () => {
+      const yesterdayDateOnly = new Date(Date.UTC(2020, 0, 1)); // arbitrary distant past day
+      const tpl = makeTemplate({ lastGeneratedDate: yesterdayDateOnly });
+      await service.maybeGenerateToday(tpl as any);
+      expect(taskRepo.create).toHaveBeenCalledTimes(1);
     });
 
     it('WEEKLY only generates when today matches weekDays', async () => {
@@ -105,6 +115,17 @@ describe('RecurringTaskService', () => {
       });
       await service.maybeGenerateToday(tpl as any);
       expect(taskRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('WEEKLY generates when today IS in weekDays', async () => {
+      const isoToday = ((new Date().getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+      const tpl = makeTemplate({
+        frequency: RecurrenceFrequency.WEEKLY,
+        weekDays: [isoToday],
+        lastGeneratedDate: null,
+      });
+      await service.maybeGenerateToday(tpl as any);
+      expect(taskRepo.create).toHaveBeenCalledTimes(1);
     });
 
     it('copies impact/urgency/estimateMinute/projectId and computes priorityScore', async () => {
