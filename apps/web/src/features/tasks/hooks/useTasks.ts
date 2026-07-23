@@ -47,7 +47,7 @@ export function useTaskList(query: TaskQuery) {
   });
 }
 
-function useInvalidateTasks() {
+export function useInvalidateTasks() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: taskKeys.all });

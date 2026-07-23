@@ -1,22 +1,22 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { recurringTaskService } from "../services/recurring-task.service";
 import type { CreateRecurringTaskPayload } from "../types/task.types";
-import { taskKeys } from "./useTasks";
+import { useInvalidateTasks } from "./useTasks";
 
 export function useCreateRecurringTask() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidateTasks();
   return useMutation({
     mutationFn: (payload: CreateRecurringTaskPayload) => recurringTaskService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
+    onSuccess: invalidate,
   });
 }
 
 export function useStopRecurringTask() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidateTasks();
   return useMutation({
     mutationFn: (id: string) => recurringTaskService.stop(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
+    onSuccess: invalidate,
   });
 }

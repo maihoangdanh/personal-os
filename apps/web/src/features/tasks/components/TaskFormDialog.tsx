@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import axios from "axios";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -190,7 +191,14 @@ export function TaskFormDialog({
       }
       onOpenChange(false);
     } catch (err) {
-      setError(extractApiErrorMessage(err));
+      // Lỗi validate lặp lại (throw new Error thuần, không phải AxiosError) mang sẵn message
+      // rõ ràng — extractApiErrorMessage chỉ đọc được AxiosError nên sẽ trả về fallback chung
+      // chung, làm mất hẳn nội dung hướng dẫn đã viết riêng cho từng trường hợp.
+      setError(
+        err instanceof Error && !axios.isAxiosError(err)
+          ? err.message
+          : extractApiErrorMessage(err),
+      );
     }
   }
 
