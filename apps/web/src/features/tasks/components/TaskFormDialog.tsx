@@ -15,7 +15,6 @@ import { useCreateTask, useUpdateTask } from "../hooks/useTasks";
 import { useCreateRecurringTask, useStopRecurringTask } from "../hooks/useRecurringTasks";
 import { STATUS_LABELS } from "../lib/status";
 import {
-  RECURRENCE_FREQUENCIES,
   TASK_STATUSES,
   type CreateTaskPayload,
   type RecurrenceFrequency,
