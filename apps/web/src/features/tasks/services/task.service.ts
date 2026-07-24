@@ -1,6 +1,7 @@
 import { apiClient, type ApiEnvelope, type ApiMeta } from "@/lib/api-client";
 import type {
   CreateTaskPayload,
+  DailyTaskStats,
   MonthlyTaskStats,
   Task,
   TaskDeleteResult,
@@ -67,6 +68,14 @@ export const taskService = {
   async monthlyStats(month?: string): Promise<MonthlyTaskStats> {
     const res = await apiClient.get<ApiEnvelope<MonthlyTaskStats>>(
       "/tasks/monthly-stats",
+      { params: month ? { month } : undefined },
+    );
+    return res.data.data;
+  },
+
+  async dailyStats(month?: string): Promise<DailyTaskStats> {
+    const res = await apiClient.get<ApiEnvelope<DailyTaskStats>>(
+      "/tasks/monthly-stats/daily",
       { params: month ? { month } : undefined },
     );
     return res.data.data;

@@ -75,3 +75,10 @@ export interface MonthlyHabitStats {
   habitCount: number;
   longestCurrentStreak: { habitName: string; currentStreak: number } | null;
 }
+
+/** GET /habits/monthly-stats/daily response data — Analytics heatmap. */
+export interface DailyHabitStats {
+  month: string;
+  days: string[];
+  habits: Array<{ habitId: string; name: string; checkedDates: string[] }>;
+}

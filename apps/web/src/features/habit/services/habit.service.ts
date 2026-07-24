@@ -2,6 +2,7 @@ import { apiClient, type ApiEnvelope } from "@/lib/api-client";
 import type {
   CheckinHabitPayload,
   CreateHabitPayload,
+  DailyHabitStats,
   Habit,
   HabitDeleteResult,
   HabitLog,
@@ -53,6 +54,14 @@ export const habitService = {
   async monthlyStats(month?: string): Promise<MonthlyHabitStats> {
     const res = await apiClient.get<ApiEnvelope<MonthlyHabitStats>>(
       "/habits/monthly-stats",
+      { params: month ? { month } : undefined },
+    );
+    return res.data.data;
+  },
+
+  async dailyStats(month?: string): Promise<DailyHabitStats> {
+    const res = await apiClient.get<ApiEnvelope<DailyHabitStats>>(
+      "/habits/monthly-stats/daily",
       { params: month ? { month } : undefined },
     );
     return res.data.data;

@@ -15,6 +15,7 @@ import type {
   CreateInvestmentPayload,
   CreateTransactionPayload,
   CreateWalletPayload,
+  DailyFinanceReport,
   TransactionFilter,
   TransferPayload,
   UpdateAssetPayload,
@@ -170,6 +171,13 @@ export function useDeleteAsset() {
 // ---------- REPORT / NET WORTH ----------
 export function useFinanceReport(month?: string) {
   return useQuery({ queryKey: financeKeys.report(month), queryFn: () => financeService.report(month) });
+}
+export function useFinanceDailyReport(month?: string) {
+  return useQuery<DailyFinanceReport>({
+    queryKey: ["finance", "dailyReport", month ?? "current"],
+    queryFn: () => financeService.dailyReport(month),
+    staleTime: 60_000,
+  });
 }
 export function useNetWorth() {
   return useQuery({ queryKey: financeKeys.netWorth, queryFn: () => financeService.netWorth() });

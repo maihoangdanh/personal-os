@@ -5,6 +5,7 @@ import { habitService } from "../services/habit.service";
 import type {
   CheckinHabitPayload,
   CreateHabitPayload,
+  DailyHabitStats,
   MonthlyHabitStats,
   UpdateHabitPayload,
 } from "../types/habit.types";
@@ -77,6 +78,14 @@ export function useHabitMonthlyStats(month?: string) {
   return useQuery<MonthlyHabitStats>({
     queryKey: ["habits", "monthlyStats", month ?? "current"],
     queryFn: () => habitService.monthlyStats(month),
+    staleTime: 60_000,
+  });
+}
+
+export function useHabitDailyStats(month?: string) {
+  return useQuery<DailyHabitStats>({
+    queryKey: ["habits", "dailyStats", month ?? "current"],
+    queryFn: () => habitService.dailyStats(month),
     staleTime: 60_000,
   });
 }

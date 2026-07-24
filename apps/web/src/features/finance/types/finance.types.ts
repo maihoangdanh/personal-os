@@ -178,3 +178,9 @@ export interface NetWorth {
   changePercent?: number | null; // (cur−prev)/prev×100, làm tròn 1 chữ số. null khi không có prev hoặc prev=0
   history?: Array<{ month: string; netWorth: number }>; // ≤12, tăng dần theo month, KHÔNG pad (có thể chỉ 1 phần tử)
 }
+
+/** GET /finance/report/daily response data — Analytics chart theo ngày. */
+export interface DailyFinanceReport {
+  month: string;
+  days: Array<{ date: string; income: number; expense: number }>;
+}

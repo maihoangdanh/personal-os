@@ -8,6 +8,7 @@ import {
 import { taskService } from "../services/task.service";
 import type {
   CreateTaskPayload,
+  DailyTaskStats,
   MonthlyTaskStats,
   Task,
   TaskQuery,
@@ -135,6 +136,14 @@ export function useTaskMonthlyStats(month?: string) {
   return useQuery<MonthlyTaskStats>({
     queryKey: ["tasks", "monthlyStats", month ?? "current"],
     queryFn: () => taskService.monthlyStats(month),
+    staleTime: 60_000,
+  });
+}
+
+export function useTaskDailyStats(month?: string) {
+  return useQuery<DailyTaskStats>({
+    queryKey: ["tasks", "dailyStats", month ?? "current"],
+    queryFn: () => taskService.dailyStats(month),
     staleTime: 60_000,
   });
 }

@@ -171,3 +171,9 @@ export interface MonthlyTaskStats {
   previousMonth: { month: string; completionPercent: number } | null;
   changePercent: number | null; // điểm phần trăm chênh lệch
 }
+
+/** GET /tasks/monthly-stats/daily response data — Analytics chart theo ngày. */
+export interface DailyTaskStats {
+  month: string;
+  days: Array<{ date: string; completedCount: number; totalCount: number }>;
+}

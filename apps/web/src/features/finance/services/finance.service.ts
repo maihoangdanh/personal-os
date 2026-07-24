@@ -8,6 +8,7 @@ import type {
   CreateInvestmentPayload,
   CreateTransactionPayload,
   CreateWalletPayload,
+  DailyFinanceReport,
   FinanceReport,
   Investment,
   NetWorth,
@@ -127,6 +128,13 @@ export const financeService = {
     const res = await apiClient.get<ApiEnvelope<FinanceReport>>("/finance/report", {
       params: month ? { month } : {},
     });
+    return res.data.data;
+  },
+  async dailyReport(month?: string): Promise<DailyFinanceReport> {
+    const res = await apiClient.get<ApiEnvelope<DailyFinanceReport>>(
+      "/finance/report/daily",
+      { params: month ? { month } : {} },
+    );
     return res.data.data;
   },
   async netWorth(): Promise<NetWorth> {

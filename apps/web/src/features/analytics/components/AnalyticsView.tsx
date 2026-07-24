@@ -12,6 +12,12 @@ import { useHabitMonthlyStats } from "@/features/habit/hooks/useHabits";
 import { useFinanceReport } from "@/features/finance/hooks/useFinance";
 import { useGoals } from "@/features/goals/hooks/useGoals";
 import { useProjects } from "@/features/projects/hooks/useProjects";
+import { useTaskDailyStats } from "@/features/tasks/hooks/useTasks";
+import { useHabitDailyStats } from "@/features/habit/hooks/useHabits";
+import { useFinanceDailyReport } from "@/features/finance/hooks/useFinance";
+import { TaskDailyChart } from "./TaskDailyChart";
+import { FinanceDailyChart } from "./FinanceDailyChart";
+import { HabitHeatmap } from "./HabitHeatmap";
 
 function currentMonth(): string {
   const d = new Date();
@@ -54,6 +60,9 @@ export function AnalyticsView() {
   const prevReport = useFinanceReport(prevMonthLabel);
   const goals = useGoals({ status: "ACTIVE" });
   const projects = useProjects({ status: "ACTIVE" });
+  const taskDaily = useTaskDailyStats(month);
+  const habitDaily = useHabitDailyStats(month);
+  const financeDaily = useFinanceDailyReport(month);
 
   const goalAvgProgress = React.useMemo(() => {
     if (!goals.data || goals.data.length === 0) return 0;
@@ -221,6 +230,21 @@ export function AnalyticsView() {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-card">
+          <div className="mb-1 text-[15px] font-bold">Task hoàn thành theo ngày</div>
+          <TaskDailyChart data={taskDaily.data} isLoading={taskDaily.isLoading} />
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5 shadow-card">
+          <div className="mb-1 text-[15px] font-bold">Thu chi theo ngày</div>
+          <FinanceDailyChart data={financeDaily.data} isLoading={financeDaily.isLoading} />
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5 shadow-card">
+          <div className="mb-1 text-[15px] font-bold">Check-in thói quen theo ngày</div>
+          <HabitHeatmap data={habitDaily.data} isLoading={habitDaily.isLoading} />
+        </div>
       </div>
     </div>
   );
