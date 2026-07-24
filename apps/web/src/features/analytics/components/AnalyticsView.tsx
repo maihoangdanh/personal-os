@@ -153,7 +153,14 @@ export function AnalyticsView() {
   ];
 
   const anyError =
-    taskStats.isError || habitStats.isError || report.isError || goals.isError || projects.isError;
+    taskStats.isError ||
+    habitStats.isError ||
+    report.isError ||
+    goals.isError ||
+    projects.isError ||
+    taskDaily.isError ||
+    habitDaily.isError ||
+    financeDaily.isError;
 
   return (
     <div className="space-y-5">
@@ -195,7 +202,14 @@ export function AnalyticsView() {
       {anyError && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {extractApiErrorMessage(
-            taskStats.error ?? habitStats.error ?? report.error ?? goals.error ?? projects.error,
+            taskStats.error ??
+              habitStats.error ??
+              report.error ??
+              goals.error ??
+              projects.error ??
+              taskDaily.error ??
+              habitDaily.error ??
+              financeDaily.error,
           )}
         </p>
       )}
