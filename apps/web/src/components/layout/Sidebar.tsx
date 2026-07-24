@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  BarChart3,
   BookOpen,
   Bot,
   CalendarDays,
@@ -56,6 +57,10 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   {
     label: "Finance",
     items: [{ href: "/finance", label: "Finance", icon: Wallet }],
+  },
+  {
+    label: "Analytics",
+    items: [{ href: "/analytics", label: "Analytics", icon: BarChart3 }],
   },
   {
     label: "Assistant",
