@@ -49,6 +49,14 @@ export class TaskController {
     return this.tasks.monthlyStats(user.userId, month);
   }
 
+  @Get('monthly-stats/daily')
+  dailyStats(
+    @CurrentUser() user: AuthUser,
+    @Query('month') month?: string,
+  ) {
+    return this.tasks.dailyStats(user.userId, month);
+  }
+
   @Get(':id')
   get(
     @CurrentUser() user: AuthUser,

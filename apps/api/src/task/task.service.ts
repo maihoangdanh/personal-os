@@ -45,6 +45,12 @@ function monthRange(month?: string): { from: Date; to: Date; month: string } {
   return { from, to, month: label };
 }
 
+/** Số ngày thật trong tháng "YYYY-MM" (UTC, tự động đúng năm nhuận). */
+function daysInMonthCount(label: string): number {
+  const [y, m] = label.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
 /** "YYYY-MM" của tháng liền trước (xử lý đúng rollover qua năm, vd 2026-01 -> 2025-12). */
 function previousMonthLabel(label: string): string {
   const [y, m] = label.split('-').map(Number);
@@ -367,6 +373,42 @@ export class TaskService {
       completionPercent,
       previousMonth,
       changePercent,
+    };
+  }
+
+  /**
+   * Trang Analytics — biểu đồ theo ngày: mỗi ngày trong tháng có completedCount
+   * (task DONE với completedAt rơi vào ngày đó) VÀ totalCount (task có deadline
+   * rơi vào ngày đó) — 2 chỉ số ĐỘC LẬP theo ngày, 1 task có thể đóng góp cho 2
+   * ngày khác nhau (deadline 1 ngày, hoàn thành muộn ngày khác).
+   */
+  async dailyStats(userId: string, month?: string) {
+    const { from, to, month: label } = monthRange(month);
+    const tasks = await this.repo.tasksInRange(userId, from, to);
+
+    const buckets = new Map<string, { completedCount: number; totalCount: number }>();
+    const totalDays = daysInMonthCount(label);
+    for (let d = 1; d <= totalDays; d++) {
+      buckets.set(`${label}-${String(d).padStart(2, '0')}`, {
+        completedCount: 0,
+        totalCount: 0,
+      });
+    }
+
+    for (const task of tasks) {
+      if (task.deadline) {
+        const bucket = buckets.get(dateLabel(task.deadline));
+        if (bucket) bucket.totalCount += 1;
+      }
+      if (task.status === TaskStatus.DONE && task.completedAt) {
+        const bucket = buckets.get(dateLabel(task.completedAt));
+        if (bucket) bucket.completedCount += 1;
+      }
+    }
+
+    return {
+      month: label,
+      days: Array.from(buckets.entries()).map(([date, counts]) => ({ date, ...counts })),
     };
   }
 

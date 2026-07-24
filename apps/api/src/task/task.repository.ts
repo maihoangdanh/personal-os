@@ -274,4 +274,28 @@ export class TaskRepository {
       where: { userId_weekStart: { userId, weekStart } },
     });
   }
+
+  /**
+   * Từng Task (deadline HOẶC completedAt trong range) — trả raw rows để service
+   * gom theo ngày (biểu đồ Analytics). Cùng where-clause với taskCountsInRange,
+   * chỉ khác select ít field hơn để bucket theo ngày ở tầng service.
+   */
+  tasksInRange(
+    userId: string,
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): Promise<{ deadline: Date | null; completedAt: Date | null; status: TaskStatus }[]> {
+    return prisma.task.findMany({
+      where: {
+        deletedAt: null,
+        status: { not: TaskStatus.ARCHIVED },
+        ...ownedByUser(userId),
+        OR: [
+          { deadline: { gte: rangeStart, lte: rangeEnd } },
+          { completedAt: { gte: rangeStart, lte: rangeEnd } },
+        ],
+      },
+      select: { deadline: true, completedAt: true, status: true },
+    });
+  }
 }

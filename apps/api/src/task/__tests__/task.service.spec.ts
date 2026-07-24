@@ -45,6 +45,7 @@ describe('TaskService', () => {
       startTimer: jest.fn(),
       stopTimer: jest.fn(),
       taskCountsInRange: jest.fn(),
+      tasksInRange: jest.fn(),
       upsertWeeklyTaskStat: jest.fn().mockResolvedValue(undefined),
       findWeeklyTaskStat: jest.fn(),
     };
@@ -308,6 +309,48 @@ describe('TaskService', () => {
       const now = new Date();
       const expectedMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
       expect(res.month).toBe(expectedMonth);
+    });
+  });
+
+  describe('dailyStats', () => {
+    it('buckets every day of the month, including empty days', async () => {
+      repo.tasksInRange.mockResolvedValue([]);
+      const res = await service.dailyStats(userId, '2026-02'); // 28 ngày, năm không nhuận
+      expect(res.month).toBe('2026-02');
+      expect(res.days).toHaveLength(28);
+      expect(res.days[0]).toEqual({ date: '2026-02-01', completedCount: 0, totalCount: 0 });
+      expect(res.days[27]).toEqual({ date: '2026-02-28', completedCount: 0, totalCount: 0 });
+    });
+
+    it('counts totalCount by deadline day and completedCount by completedAt day independently', async () => {
+      repo.tasksInRange.mockResolvedValue([
+        {
+          deadline: new Date('2026-07-05T10:00:00Z'),
+          completedAt: null,
+          status: 'TODO',
+        },
+        {
+          deadline: new Date('2026-07-05T23:00:00Z'),
+          completedAt: new Date('2026-07-07T09:00:00Z'),
+          status: 'DONE',
+        },
+      ] as any);
+      const res = await service.dailyStats(userId, '2026-07');
+      const day5 = res.days.find((d: any) => d.date === '2026-07-05')!;
+      const day7 = res.days.find((d: any) => d.date === '2026-07-07')!;
+      expect(day5.totalCount).toBe(2);
+      expect(day5.completedCount).toBe(0);
+      expect(day7.totalCount).toBe(0);
+      expect(day7.completedCount).toBe(1);
+    });
+
+    it('does not count completedAt for a task that is not DONE (defensive)', async () => {
+      repo.tasksInRange.mockResolvedValue([
+        { deadline: null, completedAt: new Date('2026-07-10T00:00:00Z'), status: 'TODO' },
+      ] as any);
+      const res = await service.dailyStats(userId, '2026-07');
+      const day10 = res.days.find((d: any) => d.date === '2026-07-10')!;
+      expect(day10.completedCount).toBe(0);
     });
   });
 });
