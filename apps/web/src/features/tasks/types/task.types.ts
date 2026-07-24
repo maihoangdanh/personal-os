@@ -161,3 +161,13 @@ export interface RecurringTaskTemplate {
   createdAt: string;
   updatedAt: string;
 }
+
+/** GET /tasks/monthly-stats response data — trang Analytics. */
+export interface MonthlyTaskStats {
+  month: string; // "YYYY-MM"
+  completedCount: number;
+  totalCount: number;
+  completionPercent: number;
+  previousMonth: { month: string; completionPercent: number } | null;
+  changePercent: number | null; // điểm phần trăm chênh lệch
+}

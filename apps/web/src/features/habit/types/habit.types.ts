@@ -65,3 +65,13 @@ export interface CheckinHabitPayload {
 
 /** Gợi ý frequency cho form (backend nhận free string). */
 export const HABIT_FREQUENCIES = ["DAILY", "WEEKLY"] as const;
+
+/** GET /habits/monthly-stats response data — trang Analytics. */
+export interface MonthlyHabitStats {
+  month: string; // "YYYY-MM"
+  checkinCount: number;
+  previousMonth: { month: string; checkinCount: number } | null;
+  changePercent: number | null; // % thay đổi TƯƠNG ĐỐI của số lượng check-in
+  habitCount: number;
+  longestCurrentStreak: { habitName: string; currentStreak: number } | null;
+}

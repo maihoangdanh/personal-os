@@ -8,6 +8,7 @@ import {
 import { taskService } from "../services/task.service";
 import type {
   CreateTaskPayload,
+  MonthlyTaskStats,
   Task,
   TaskQuery,
   UpdateTaskPayload,
@@ -127,5 +128,13 @@ export function useStopTimer() {
   return useMutation({
     mutationFn: (id: string) => taskService.stopTimer(id),
     onSuccess: invalidate,
+  });
+}
+
+export function useTaskMonthlyStats(month?: string) {
+  return useQuery<MonthlyTaskStats>({
+    queryKey: ["tasks", "monthlyStats", month ?? "current"],
+    queryFn: () => taskService.monthlyStats(month),
+    staleTime: 60_000,
   });
 }

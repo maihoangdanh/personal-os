@@ -6,6 +6,7 @@ import type {
   TaskListMeta,
   TaskListResult,
   TaskQuery,
+  MonthlyTaskStats,
   TimeLog,
   UpdateTaskPayload,
   WeeklyTaskStats,
@@ -60,6 +61,14 @@ export const taskService = {
 
   async weeklyStats(): Promise<WeeklyTaskStats> {
     const res = await apiClient.get<ApiEnvelope<WeeklyTaskStats>>("/tasks/weekly-stats");
+    return res.data.data;
+  },
+
+  async monthlyStats(month?: string): Promise<MonthlyTaskStats> {
+    const res = await apiClient.get<ApiEnvelope<MonthlyTaskStats>>(
+      "/tasks/monthly-stats",
+      { params: month ? { month } : undefined },
+    );
     return res.data.data;
   },
 };

@@ -6,6 +6,7 @@ import type {
   HabitDeleteResult,
   HabitLog,
   HabitStreak,
+  MonthlyHabitStats,
   UpdateHabitPayload,
 } from "../types/habit.types";
 
@@ -46,6 +47,14 @@ export const habitService = {
 
   async streak(id: string): Promise<HabitStreak> {
     const res = await apiClient.get<ApiEnvelope<HabitStreak>>(`/habits/${id}/streak`);
+    return res.data.data;
+  },
+
+  async monthlyStats(month?: string): Promise<MonthlyHabitStats> {
+    const res = await apiClient.get<ApiEnvelope<MonthlyHabitStats>>(
+      "/habits/monthly-stats",
+      { params: month ? { month } : undefined },
+    );
     return res.data.data;
   },
 };

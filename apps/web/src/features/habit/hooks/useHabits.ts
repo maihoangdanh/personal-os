@@ -5,6 +5,7 @@ import { habitService } from "../services/habit.service";
 import type {
   CheckinHabitPayload,
   CreateHabitPayload,
+  MonthlyHabitStats,
   UpdateHabitPayload,
 } from "../types/habit.types";
 
@@ -69,5 +70,13 @@ export function useCheckinHabit() {
     // Sau check-in, làm mới streak của đúng habit đó (currentStreak + checkedInToday).
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: habitKeys.streak(variables.id) }),
+  });
+}
+
+export function useHabitMonthlyStats(month?: string) {
+  return useQuery<MonthlyHabitStats>({
+    queryKey: ["habits", "monthlyStats", month ?? "current"],
+    queryFn: () => habitService.monthlyStats(month),
+    staleTime: 60_000,
   });
 }
