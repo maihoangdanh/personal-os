@@ -263,6 +263,30 @@ implementer + spec-review + code-quality-review).
       +3 Habit monthly-stats). Spec: `docs/superpowers/specs/2026-07-24-analytics-page-design.md`,
       Plan: `docs/superpowers/plans/2026-07-24-analytics-page.md`.
 
+### Biểu đồ theo ngày trong tháng (2026-07-24)
+
+Sau khi 5-card tổng hợp lên production, người dùng muốn thêm góc nhìn theo TỪNG NGÀY (không chỉ
+1 số/tháng) cho Task/Habit/Finance — Goal/Project vẫn loại trừ (không có lịch sử theo ngày). Quy
+trình: brainstorm → spec → plan → Subagent-Driven Development (4 task, mỗi task qua implementer +
+spec-review + code-quality-review).
+
+- [x] ✅ Backend: `GET /tasks/monthly-stats/daily?month=` — mỗi ngày trong tháng có
+      `completedCount` (task DONE, theo ngày `completedAt`) VÀ `totalCount` (theo ngày `deadline`)
+      — 2 chỉ số độc lập, 1 task có thể đóng góp cho 2 ngày khác nhau. 1 query `findMany` duy nhất,
+      gom theo ngày ở tầng service (không N+1).
+- [x] ✅ Backend: `GET /habits/monthly-stats/daily?month=` — heatmap kiểu GitHub, mỗi habit +
+      danh sách ngày đã check-in trong tháng. 1 query lấy toàn bộ log của mọi habit trong tháng.
+- [x] ✅ Backend: `GET /finance/report/daily?month=` — thu/chi theo từng ngày, cùng quy tắc loại
+      Transfer với `sumRealized`/`monthlyReport` nhưng trả raw rows để gom theo ngày.
+- [x] ✅ Frontend: section mới bên dưới 5 card `/analytics` — `TaskDailyChart` (cột nhóm: hoàn
+      thành vs tổng đến hạn), `FinanceDailyChart` (cột phân cực quanh mốc 0: thu/chi), `HabitHeatmap`
+      (lưới habit × ngày). Tự vẽ bằng div/Tailwind thuần, không thêm thư viện chart, tái dùng đúng
+      palette màu hiện có (`primary`/`success`/`destructive`/`muted`). Tooltip hover qua `title`
+      attribute (đơn giản, đủ dùng cho app 1 người dùng).
+- [x] ✅ Backend **152/152 unit test pass** (cộng dồn từ 149, +3 Task daily, +2 Habit daily,
+      +1 Finance daily). Spec: `docs/superpowers/specs/2026-07-24-analytics-daily-charts-design.md`,
+      Plan: `docs/superpowers/plans/2026-07-24-analytics-daily-charts.md`.
+
 ---
 
 ## Tổng số liệu thật (verify 2026-07-18)
