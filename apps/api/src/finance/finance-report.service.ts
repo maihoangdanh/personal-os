@@ -39,6 +39,16 @@ function previousMonthLabel(month: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function dateLabel(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function daysInMonthList(label: string): string[] {
+  const [y, m] = label.split('-').map(Number);
+  const total = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: total }, (_, i) => `${label}-${String(i + 1).padStart(2, '0')}`);
+}
+
 @Injectable()
 export class FinanceReportService {
   constructor(private readonly repo: FinanceReportRepository) {}
@@ -61,6 +71,32 @@ export class FinanceReportService {
       profit,
       savingRate, // ratio (multiply by 100 for %)
       savingRatePercent: round2(savingRate * 100),
+    };
+  }
+
+  /**
+   * Trang Analytics — Thu/Chi theo TỪNG NGÀY trong tháng (loại Transfer, cùng
+   * quy tắc monthlyReport — chỉ khác là gom theo ngày thay vì tổng cả tháng).
+   */
+  async dailyReport(userId: string, month?: string) {
+    const { from, to, month: label } = monthRange(month);
+    const rows = await this.repo.transactionsInRange(userId, from, to);
+
+    const buckets = new Map<string, { income: number; expense: number }>();
+    for (const date of daysInMonthList(label)) {
+      buckets.set(date, { income: 0, expense: 0 });
+    }
+    for (const row of rows) {
+      const bucket = buckets.get(dateLabel(row.transactionDate));
+      if (!bucket) continue;
+      const amount = row.amount.toNumber();
+      if (row.type === 'INCOME') bucket.income = round2(bucket.income + amount);
+      else if (row.type === 'EXPENSE') bucket.expense = round2(bucket.expense + amount);
+    }
+
+    return {
+      month: label,
+      days: Array.from(buckets.entries()).map(([date, v]) => ({ date, ...v })),
     };
   }
 

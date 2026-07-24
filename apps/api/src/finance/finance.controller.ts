@@ -14,6 +14,12 @@ export class FinanceController {
     return this.report.monthlyReport(user.userId, q.month);
   }
 
+  /** Thu/Chi theo từng ngày trong tháng (biểu đồ Analytics). */
+  @Get('report/daily')
+  dailyReport(@CurrentUser() user: AuthUser, @Query() q: ReportQueryDto) {
+    return this.report.dailyReport(user.userId, q.month);
+  }
+
   @Get('net-worth')
   netWorth(@CurrentUser() user: AuthUser) {
     return this.report.netWorth(user.userId);

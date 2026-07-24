@@ -8,6 +8,7 @@ describe('FinanceReportService', () => {
     upsertNetWorthSnapshot: jest.Mock;
     netWorthSnapshotForMonth: jest.Mock;
     netWorthHistory: jest.Mock;
+    transactionsInRange: jest.Mock;
   };
 
   beforeEach(() => {
@@ -17,6 +18,7 @@ describe('FinanceReportService', () => {
       upsertNetWorthSnapshot: jest.fn().mockResolvedValue(undefined),
       netWorthSnapshotForMonth: jest.fn().mockResolvedValue(null),
       netWorthHistory: jest.fn().mockResolvedValue([]),
+      transactionsInRange: jest.fn(),
     };
     service = new FinanceReportService(repo as any);
   });
@@ -144,5 +146,36 @@ describe('FinanceReportService', () => {
     repo.netWorthHistory.mockResolvedValue(series);
     const res = await service.netWorth('u1');
     expect(res.history).toEqual(series);
+  });
+
+  describe('dailyReport', () => {
+    it('buckets income/expense by day, every day present even when empty', async () => {
+      repo.transactionsInRange.mockResolvedValue([
+        {
+          type: 'INCOME',
+          amount: { toNumber: () => 500000 } as any,
+          transactionDate: new Date('2026-07-05T08:00:00Z'),
+        },
+        {
+          type: 'EXPENSE',
+          amount: { toNumber: () => 120000 } as any,
+          transactionDate: new Date('2026-07-05T18:00:00Z'),
+        },
+        {
+          type: 'EXPENSE',
+          amount: { toNumber: () => 50000 } as any,
+          transactionDate: new Date('2026-07-05T20:00:00Z'),
+        },
+      ]);
+
+      const res = await service.dailyReport('u1', '2026-07');
+      expect(res.month).toBe('2026-07');
+      expect(res.days).toHaveLength(31);
+      const day5 = res.days.find((d: any) => d.date === '2026-07-05')!;
+      expect(day5.income).toBe(500000);
+      expect(day5.expense).toBe(170000);
+      const day1 = res.days.find((d: any) => d.date === '2026-07-01')!;
+      expect(day1).toEqual({ date: '2026-07-01', income: 0, expense: 0 });
+    });
   });
 });

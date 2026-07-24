@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { prisma } from '@personal-os/database';
+import { Prisma, prisma, TransactionType } from '@personal-os/database';
 import { computeNetWorth, sumRealized } from '../common/finance';
 
 /** Read-only aggregation for finance reports. Transfers are excluded in sumRealized. */
@@ -70,5 +70,25 @@ export class FinanceReportRepository {
       select: { month: true, netWorth: true },
     });
     return rows.map((r) => ({ month: r.month, netWorth: r.netWorth.toNumber() })).reverse();
+  }
+
+  /**
+   * Từng transaction THẬT (loại Transfer qua transferGroupId:null — cùng quy tắc
+   * sumRealized) trong khoảng [from, to] — cho biểu đồ Analytics theo ngày.
+   */
+  transactionsInRange(
+    userId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{ type: TransactionType; amount: Prisma.Decimal; transactionDate: Date }[]> {
+    return prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        transferGroupId: null,
+        wallet: { userId },
+        transactionDate: { gte: from, lte: to },
+      },
+      select: { type: true, amount: true, transactionDate: true },
+    });
   }
 }
