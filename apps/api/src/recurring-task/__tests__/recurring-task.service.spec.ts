@@ -1,6 +1,7 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import { RecurrenceFrequency } from '@personal-os/database';
 import { RecurringTaskService } from '../recurring-task.service';
+import { vnTodayAsUtcDateOnly, vnTodayAt, vnTodayIsoWeekday } from '../vn-time';
 
 const userId = 'user-1';
 
@@ -88,11 +89,9 @@ describe('RecurringTaskService', () => {
     });
 
     it('does not generate twice on the same day', async () => {
-      // lastGeneratedDate stored the same way the service stores it (UTC-midnight
-      // matching Postgres @db.Date truncation) — see recurring-task.service.ts.
-      const now = new Date();
-      const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-      const tpl = makeTemplate({ lastGeneratedDate: todayDateOnly });
+      // lastGeneratedDate stored the same way the service stores it (VN calendar date,
+      // UTC-midnight matching Postgres @db.Date truncation) — see vn-time.ts.
+      const tpl = makeTemplate({ lastGeneratedDate: vnTodayAsUtcDateOnly() });
       await service.maybeGenerateToday(tpl as any);
       expect(taskRepo.create).not.toHaveBeenCalled();
     });
@@ -105,8 +104,8 @@ describe('RecurringTaskService', () => {
     });
 
     it('WEEKLY only generates when today matches weekDays', async () => {
-      // Pick a weekday NOT today so it should skip.
-      const isoToday = ((new Date().getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+      // Pick a weekday NOT today (VN calendar) so it should skip.
+      const isoToday = vnTodayIsoWeekday();
       const otherDay = isoToday === 1 ? 2 : 1;
       const tpl = makeTemplate({
         frequency: RecurrenceFrequency.WEEKLY,
@@ -118,7 +117,7 @@ describe('RecurringTaskService', () => {
     });
 
     it('WEEKLY generates when today IS in weekDays', async () => {
-      const isoToday = ((new Date().getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+      const isoToday = vnTodayIsoWeekday();
       const tpl = makeTemplate({
         frequency: RecurrenceFrequency.WEEKLY,
         weekDays: [isoToday],
@@ -126,6 +125,13 @@ describe('RecurringTaskService', () => {
       });
       await service.maybeGenerateToday(tpl as any);
       expect(taskRepo.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('computes deadline from timeOfDay in VN time (UTC+7), not server-local time', async () => {
+      const tpl = makeTemplate({ timeOfDay: '13:00' });
+      await service.maybeGenerateToday(tpl as any);
+      const call = taskRepo.create.mock.calls[0][0];
+      expect(call.deadline.getTime()).toBe(vnTodayAt(13, 0).getTime());
     });
 
     it('copies impact/urgency/estimateMinute/projectId and computes priorityScore', async () => {

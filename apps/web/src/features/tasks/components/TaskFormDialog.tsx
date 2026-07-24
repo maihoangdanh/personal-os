@@ -73,6 +73,7 @@ export function TaskFormDialog({
     milestoneId: "",
     recurrence: "NONE" as "NONE" | RecurrenceFrequency,
     recurrenceWeekDays: [] as number[],
+    recurrenceTimeOfDay: "",
   });
 
   // Milestone của project đang chọn (constraint: milestone phải cùng project).
@@ -113,6 +114,7 @@ export function TaskFormDialog({
         milestoneId: task.milestoneId ?? "",
         recurrence: "NONE",
         recurrenceWeekDays: [],
+        recurrenceTimeOfDay: "",
       });
     } else {
       setForm({
@@ -127,6 +129,7 @@ export function TaskFormDialog({
         milestoneId: "",
         recurrence: "NONE",
         recurrenceWeekDays: [],
+        recurrenceTimeOfDay: "",
       });
     }
   }, [open, task, defaultProjectId]);
@@ -179,6 +182,7 @@ export function TaskFormDialog({
           estimateMinute: form.estimateMinute !== "" ? Number(form.estimateMinute) : undefined,
           frequency: form.recurrence,
           weekDays: form.recurrence === "WEEKLY" ? form.recurrenceWeekDays : undefined,
+          timeOfDay: form.recurrenceTimeOfDay || undefined,
         });
       } else {
         const payload: CreateTaskPayload = { ...common };
@@ -340,15 +344,17 @@ export function TaskFormDialog({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="deadline">Deadline (phải ở tương lai)</Label>
-          <Input
-            id="deadline"
-            type="datetime-local"
-            value={form.deadline}
-            onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-          />
-        </div>
+        {form.recurrence === "NONE" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="deadline">Deadline (phải ở tương lai)</Label>
+            <Input
+              id="deadline"
+              type="datetime-local"
+              value={form.deadline}
+              onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
+            />
+          </div>
+        )}
 
         {!isEdit && (
           <div className="space-y-1.5 rounded-md border border-border p-3">
@@ -406,9 +412,25 @@ export function TaskFormDialog({
               </div>
             )}
             {form.recurrence !== "NONE" && (
-              <p className="text-xs text-muted-foreground">
-                Task lặp lại phải thuộc 1 Project cụ thể (chọn ở mục Project phía trên).
-              </p>
+              <>
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="recurrenceTimeOfDay">Giờ trong ngày (giờ Việt Nam)</Label>
+                  <Input
+                    id="recurrenceTimeOfDay"
+                    type="time"
+                    value={form.recurrenceTimeOfDay}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, recurrenceTimeOfDay: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Bỏ trống = deadline mặc định 23:59 mỗi ngày sinh task.
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Task lặp lại phải thuộc 1 Project cụ thể (chọn ở mục Project phía trên).
+                </p>
+              </>
             )}
           </div>
         )}

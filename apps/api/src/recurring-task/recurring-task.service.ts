@@ -9,29 +9,13 @@ import { TaskRepository } from '../task/task.repository';
 import { CreateRecurringTaskDto } from './dto/create-recurring-task.dto';
 import { RecurringTaskTemplateResponseDto } from './dto/recurring-task-response.dto';
 import { RecurringTaskRepository } from './recurring-task.repository';
+import { vnTodayAsUtcDateOnly, vnTodayAt, vnTodayIsoWeekday } from './vn-time';
 
 const DEFAULT_DEADLINE_HOUR = 23;
 const DEFAULT_DEADLINE_MINUTE = 59;
 
-/**
- * UTC midnight representing "today" by LOCAL calendar date — matches how Postgres
- * `@db.Date` truncates DateTime values (UTC), so a value stored here reads back
- * byte-identical from Prisma and can be compared with `isSameDate` without ever
- * re-deriving local-vs-UTC labels. Storing/comparing `lastGeneratedDate` on two
- * different bases (local labels vs UTC-truncated column) risked double-generating
- * a task on a same-day rerun near midnight — see code review 2026-07-23.
- */
-function todayAsUtcDateOnly(now: Date): Date {
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
-
 function isSameDate(a: Date, b: Date): boolean {
   return a.getTime() === b.getTime();
-}
-
-/** ISO weekday of `d`: 1=Mon..7=Sun (JS getDay() is 0=Sun..6=Sat). */
-function isoWeekday(d: Date): number {
-  return ((d.getDay() + 6) % 7) + 1;
 }
 
 @Injectable()
@@ -103,16 +87,15 @@ export class RecurringTaskService {
   async maybeGenerateToday(
     template: RecurringTaskTemplate,
   ): Promise<RecurringTaskTemplate | null> {
-    const now = new Date();
-    const today = todayAsUtcDateOnly(now);
+    const today = vnTodayAsUtcDateOnly();
     if (template.lastGeneratedDate && isSameDate(template.lastGeneratedDate, today)) {
       return null; // đã sinh hôm nay rồi
     }
-    if (!this.matchesToday(template, now)) {
+    if (!this.matchesToday(template)) {
       return null;
     }
 
-    const deadline = this.computeDeadline(template, now);
+    const deadline = this.computeDeadline(template);
     await this.taskRepo.create({
       projectId: template.projectId,
       title: template.title,
@@ -129,24 +112,17 @@ export class RecurringTaskService {
     return this.repo.update(template.id, { lastGeneratedDate: today });
   }
 
-  private matchesToday(template: RecurringTaskTemplate, today: Date): boolean {
+  private matchesToday(template: RecurringTaskTemplate): boolean {
     if (template.frequency === RecurrenceFrequency.DAILY) return true;
-    return template.weekDays.includes(isoWeekday(today));
+    return template.weekDays.includes(vnTodayIsoWeekday());
   }
 
-  private computeDeadline(template: RecurringTaskTemplate, today: Date): Date {
+  /** Deadline tính theo giờ VN (xem vn-time.ts) — timeOfDay là "HH:mm" giờ VN người dùng nhập. */
+  private computeDeadline(template: RecurringTaskTemplate): Date {
     if (template.timeOfDay) {
       const [h, m] = template.timeOfDay.split(':').map(Number);
-      return new Date(today.getFullYear(), today.getMonth(), today.getDate(), h, m, 0, 0);
+      return vnTodayAt(h, m);
     }
-    return new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      DEFAULT_DEADLINE_HOUR,
-      DEFAULT_DEADLINE_MINUTE,
-      0,
-      0,
-    );
+    return vnTodayAt(DEFAULT_DEADLINE_HOUR, DEFAULT_DEADLINE_MINUTE);
   }
 }

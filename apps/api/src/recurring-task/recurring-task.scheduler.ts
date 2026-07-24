@@ -4,12 +4,15 @@ import { prisma } from '@personal-os/database';
 import { TaskRepository } from '../task/task.repository';
 import { RecurringTaskRepository } from './recurring-task.repository';
 import { RecurringTaskService } from './recurring-task.service';
+import { vnTodayStart } from './vn-time';
 
 /**
- * Chạy 1 lần/ngày (đầu giờ sáng, giờ server — hệ thống hiện 1 user thật nên
- * không cần theo timezone riêng từng user, xem spec). Với mỗi template active:
- * 1) archive các Task instance quá hạn (deadline < hôm nay) chưa DONE.
- * 2) sinh instance hôm nay nếu lịch khớp (tái dùng RecurringTaskService).
+ * Chạy 1 lần/ngày. Server production chạy container UTC (`00:10 * * *` = 00:10 UTC =
+ * 07:10 giờ VN — vẫn là "đầu giờ sáng" thật với người dùng, không cần đổi lịch cron).
+ * Với mỗi template active:
+ * 1) archive các Task instance quá hạn (deadline trước 00:00 giờ VN hôm nay) chưa DONE.
+ * 2) sinh instance hôm nay nếu lịch khớp (tái dùng RecurringTaskService — tính theo giờ VN,
+ *    xem vn-time.ts, KHÔNG theo giờ local của server).
  */
 @Injectable()
 export class RecurringTaskScheduler {
@@ -21,7 +24,7 @@ export class RecurringTaskScheduler {
     private readonly service: RecurringTaskService,
   ) {}
 
-  @Cron('10 0 * * *') // 00:10 mỗi ngày — lệch khỏi nửa đêm đúng để tránh trùng job khác
+  @Cron('10 0 * * *') // 00:10 UTC = 07:10 VN mỗi ngày
   async run(): Promise<void> {
     const templates = await this.repo.findAllActive();
     let archived = 0;
@@ -41,8 +44,7 @@ export class RecurringTaskScheduler {
   }
 
   private async archiveOverdueInstances(templateId: string): Promise<number> {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = vnTodayStart();
 
     const stale = await prisma.task.findMany({
       where: {
