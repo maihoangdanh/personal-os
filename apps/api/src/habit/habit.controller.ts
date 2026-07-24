@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { AuthUser } from '../common/auth/auth-user';
 import { CurrentUser } from '../common/auth/current-user.decorator';
@@ -30,6 +31,15 @@ export class HabitController {
   @HttpCode(HttpStatus.CREATED)
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateHabitDto) {
     return this.habits.create(user.userId, dto);
+  }
+
+  /** Phải đăng ký TRƯỚC @Get(':id') — không thì "monthly-stats" bị nuốt vào :id. */
+  @Get('monthly-stats')
+  monthlyStats(
+    @CurrentUser() user: AuthUser,
+    @Query('month') month?: string,
+  ) {
+    return this.habits.monthlyStats(user.userId, month);
   }
 
   @Get(':id')

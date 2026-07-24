@@ -57,4 +57,15 @@ export class HabitRepository {
       select: { logDate: true },
     });
   }
+
+  /** Tổng số HabitLog (mọi habit của user) có logDate trong khoảng [from, to]. */
+  countLogsInRange(userId: string, from: Date, to: Date): Promise<number> {
+    return prisma.habitLog.count({
+      where: {
+        deletedAt: null,
+        logDate: { gte: from, lte: to },
+        habit: { userId, deletedAt: null },
+      },
+    });
+  }
 }

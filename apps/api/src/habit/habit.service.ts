@@ -13,6 +13,33 @@ import { UpdateHabitDto } from './dto/update-habit.dto';
 import { computeStreak, toUtcDateOnly } from './habit-date.util';
 import { HabitRepository } from './habit.repository';
 
+/** "YYYY-MM" (mặc định tháng hiện tại, UTC) → { from, to, month } của tháng đó. */
+function monthRange(month?: string): { from: Date; to: Date; month: string } {
+  const now = new Date();
+  let y = now.getUTCFullYear();
+  let m = now.getUTCMonth();
+  if (month) {
+    const [yy, mm] = month.split('-').map(Number);
+    y = yy;
+    m = mm - 1;
+  }
+  const from = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
+  const to = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+  const label = `${y}-${String(m + 1).padStart(2, '0')}`;
+  return { from, to, month: label };
+}
+
+/** "YYYY-MM" của tháng liền trước (xử lý đúng rollover qua năm). */
+function previousMonthLabel(label: string): string {
+  const [y, m] = label.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 @Injectable()
 export class HabitService {
   constructor(
@@ -133,6 +160,56 @@ export class HabitService {
       currentStreak: result.currentStreak,
       lastLogDate: result.lastLogDate,
       checkedInToday: result.checkedInToday,
+    };
+  }
+
+  /**
+   * Trang Analytics — tổng check-in trong 1 tháng bất kỳ (mọi habit) + so tháng
+   * trước + streak dài nhất hiện tại. changePercent ở đây là % THAY ĐỔI TƯƠNG ĐỐI
+   * của SỐ LƯỢNG check-in (khác Task dùng điểm phần trăm — vì đây không phải tỉ lệ %).
+   */
+  async monthlyStats(userId: string, month?: string) {
+    const { from, to, month: label } = monthRange(month);
+    const checkinCount = await this.repo.countLogsInRange(userId, from, to);
+
+    const prevLabel = previousMonthLabel(label);
+    const prevRange = monthRange(prevLabel);
+    const prevCheckinCount = await this.repo.countLogsInRange(
+      userId,
+      prevRange.from,
+      prevRange.to,
+    );
+
+    let previousMonth: { month: string; checkinCount: number } | null = null;
+    let changePercent: number | null = null;
+    if (prevCheckinCount > 0) {
+      previousMonth = { month: prevLabel, checkinCount: prevCheckinCount };
+      changePercent = round1(
+        ((checkinCount - prevCheckinCount) / prevCheckinCount) * 100,
+      );
+    }
+
+    const habits = await this.repo.findManyScoped(userId);
+    let longestCurrentStreak: { habitName: string; currentStreak: number } | null =
+      null;
+    for (const habit of habits) {
+      const rows = await this.repo.findLogDates(habit.id);
+      const { currentStreak } = computeStreak(
+        rows.map((r) => r.logDate),
+        toUtcDateOnly(),
+      );
+      if (!longestCurrentStreak || currentStreak > longestCurrentStreak.currentStreak) {
+        longestCurrentStreak = { habitName: habit.name, currentStreak };
+      }
+    }
+
+    return {
+      month: label,
+      checkinCount,
+      previousMonth,
+      changePercent,
+      habitCount: habits.length,
+      longestCurrentStreak,
     };
   }
 

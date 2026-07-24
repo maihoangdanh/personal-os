@@ -95,6 +95,7 @@ describe('HabitService', () => {
       findLogForDate: jest.fn(),
       createLog: jest.fn(),
       findLogDates: jest.fn(),
+      countLogsInRange: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new HabitService(repo as any, audit as any);
@@ -163,6 +164,49 @@ describe('HabitService', () => {
       const res = await service.streak(userId, 'habit-1');
       expect(res.habitId).toBe('habit-1');
       expect(res.currentStreak).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('monthlyStats', () => {
+    it('computes checkinCount for the month + habitCount + longestCurrentStreak', async () => {
+      repo.findManyScoped.mockResolvedValue([
+        makeHabit({ id: 'habit-1', name: 'Đọc sách' }),
+        makeHabit({ id: 'habit-2', name: 'Tập thể dục' }),
+      ]);
+      repo.countLogsInRange
+        .mockResolvedValueOnce(20) // tháng được chọn
+        .mockResolvedValueOnce(15); // tháng trước
+      repo.findLogDates.mockImplementation((habitId: string) =>
+        Promise.resolve(
+          habitId === 'habit-1'
+            ? [{ logDate: utc('2026-07-16') }, { logDate: utc('2026-07-15') }]
+            : [{ logDate: utc('2026-07-10') }],
+        ),
+      );
+
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.month).toBe('2026-07');
+      expect(res.checkinCount).toBe(20);
+      expect(res.habitCount).toBe(2);
+      expect(res.previousMonth).toEqual({ month: '2026-06', checkinCount: 15 });
+      // (20-15)/15*100 = 33.3
+      expect(res.changePercent).toBeCloseTo(33.3, 1);
+    });
+
+    it('previousMonth is null when last month has 0 check-ins (avoid divide-by-zero)', async () => {
+      repo.findManyScoped.mockResolvedValue([]);
+      repo.countLogsInRange.mockResolvedValueOnce(5).mockResolvedValueOnce(0);
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.previousMonth).toBeNull();
+      expect(res.changePercent).toBeNull();
+    });
+
+    it('longestCurrentStreak is null when there are no habits', async () => {
+      repo.findManyScoped.mockResolvedValue([]);
+      repo.countLogsInRange.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.longestCurrentStreak).toBeNull();
+      expect(res.habitCount).toBe(0);
     });
   });
 });
