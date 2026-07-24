@@ -241,6 +241,28 @@ OpenAI-compatible (`AI_API_BASE`/`AI_API_KEY`/`AI_MODEL` trong `apps/api/.env`, 
 - [ ] ⏸️ Gửi AI summary qua Telegram/push — chưa làm
 - [ ] ⏸️ Tổng kết định kỳ tự động (cron/worker) — hiện SYNC theo yêu cầu, để dành khi dựng BullMQ
 
+## Phase 5 — Analytics ✅ Hoàn tất (2026-07-24)
+
+Trang tổng hợp đo lường hiệu suất cá nhân theo tháng, xuyên suốt 5 module — người dùng yêu cầu
+sau khi nhận thấy thiếu 1 báo cáo tổng thể (trước đó mỗi module chỉ có report/widget riêng lẻ).
+Quy trình: brainstorm → spec → plan → Subagent-Driven Development (4 task, mỗi task qua
+implementer + spec-review + code-quality-review).
+
+- [x] ✅ Backend: `GET /tasks/monthly-stats?month=` — % hoàn thành task 1 tháng bất kỳ + so tháng
+      trước (điểm phần trăm chênh lệch), tính hoàn toàn runtime (không cần snapshot table vì Task
+      đã là bản ghi lịch sử thật). Đổi tên `TaskRepository.weeklyTaskCounts` →
+      `taskCountsInRange` để dùng chung cho cả tuần lẫn tháng, tránh trùng lặp logic where-clause.
+- [x] ✅ Backend: `GET /habits/monthly-stats?month=` — tổng check-in tháng + so tháng trước (%
+      thay đổi TƯƠNG ĐỐI của số lượng, khác Task dùng điểm phần trăm) + streak dài nhất hiện tại
+      trong tất cả habit.
+- [x] ✅ Frontend: trang `/analytics` mới (mục Sidebar riêng, sau Finance trước Assistant) — bộ
+      chọn tháng (khớp UI Finance Report), 5 card: Task/Habit/Finance (so tháng trước) + Goal/
+      Project (chỉ số hiện tại, KHÔNG so tháng trước — quyết định có chủ đích vì `progress` là
+      giá trị sống không có lịch sử theo tháng, tránh phải xây thêm snapshot table ngoài yêu cầu).
+- [x] ✅ Backend **146/146 unit test pass** (cộng dồn từ 138 trước đó, +5 Task monthly-stats,
+      +3 Habit monthly-stats). Spec: `docs/superpowers/specs/2026-07-24-analytics-page-design.md`,
+      Plan: `docs/superpowers/plans/2026-07-24-analytics-page.md`.
+
 ---
 
 ## Tổng số liệu thật (verify 2026-07-18)
