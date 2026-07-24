@@ -101,7 +101,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {NAV_GROUPS.map((group, groupIdx) => (
           <div key={group.label ?? `group-${groupIdx}`} className="flex flex-col gap-0.5">
             {group.label && (
