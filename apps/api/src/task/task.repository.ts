@@ -223,25 +223,26 @@ export class TaskRepository {
     });
   }
 
-  // ---- Weekly completion stat (Dashboard StatStrip) ----
+  // ---- Task completion counts in a date range (Dashboard StatStrip + Analytics) ----
 
   /**
-   * Tasks "belonging to" a week = deadline in range OR completedAt in range
-   * (same inclusion rule as the frontend's "today" widget, scaled to a week).
-   * ARCHIVED is excluded — same rationale as elsewhere (no longer an open/live item).
+   * Tasks "belonging to" a date range = deadline in range OR completedAt in range
+   * (same inclusion rule as the frontend's "today" widget, scaled to any range —
+   * dùng chung cho cả thống kê tuần và tháng). ARCHIVED is excluded — same
+   * rationale as elsewhere (no longer an open/live item).
    */
-  async weeklyTaskCounts(
+  async taskCountsInRange(
     userId: string,
-    weekStart: Date,
-    weekEnd: Date,
+    rangeStart: Date,
+    rangeEnd: Date,
   ): Promise<{ completedCount: number; totalCount: number }> {
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
       status: { not: TaskStatus.ARCHIVED },
       ...ownedByUser(userId),
       OR: [
-        { deadline: { gte: weekStart, lte: weekEnd } },
-        { completedAt: { gte: weekStart, lte: weekEnd } },
+        { deadline: { gte: rangeStart, lte: rangeEnd } },
+        { completedAt: { gte: rangeStart, lte: rangeEnd } },
       ],
     };
     const [totalCount, completedCount] = await Promise.all([

@@ -40,6 +40,15 @@ export class TaskController {
     return this.tasks.weeklyStats(user.userId);
   }
 
+  /** Cùng lý do đăng ký trước :id như weekly-stats ở trên. */
+  @Get('monthly-stats')
+  monthlyStats(
+    @CurrentUser() user: AuthUser,
+    @Query('month') month?: string,
+  ) {
+    return this.tasks.monthlyStats(user.userId, month);
+  }
+
   @Get(':id')
   get(
     @CurrentUser() user: AuthUser,

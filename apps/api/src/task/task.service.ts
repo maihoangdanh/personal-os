@@ -29,6 +29,29 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+/** "YYYY-MM" (mặc định tháng hiện tại, UTC) → { from, to, month } của tháng đó. */
+function monthRange(month?: string): { from: Date; to: Date; month: string } {
+  const now = new Date();
+  let y = now.getUTCFullYear();
+  let m = now.getUTCMonth(); // 0-based
+  if (month) {
+    const [yy, mm] = month.split('-').map(Number);
+    y = yy;
+    m = mm - 1;
+  }
+  const from = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
+  const to = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+  const label = `${y}-${String(m + 1).padStart(2, '0')}`;
+  return { from, to, month: label };
+}
+
+/** "YYYY-MM" của tháng liền trước (xử lý đúng rollover qua năm, vd 2026-01 -> 2025-12). */
+function previousMonthLabel(label: string): string {
+  const [y, m] = label.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1)); // m 1-based; lùi thêm 1 tháng nữa
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 @Injectable()
 export class TaskService {
   constructor(
@@ -265,7 +288,7 @@ export class TaskService {
     weekEnd.setUTCHours(23, 59, 59, 999);
     const weekStartLabel = dateLabel(monday);
 
-    const { completedCount, totalCount } = await this.repo.weeklyTaskCounts(
+    const { completedCount, totalCount } = await this.repo.taskCountsInRange(
       userId,
       monday,
       weekEnd,
@@ -300,6 +323,49 @@ export class TaskService {
       totalCount,
       completionPercent,
       previousWeek,
+      changePercent,
+    };
+  }
+
+  /**
+   * Trang Analytics — % task hoàn thành trong 1 tháng bất kỳ + so với tháng trước.
+   * KHÔNG upsert snapshot (khác weeklyStats) — tính hoàn toàn runtime vì Task đã
+   * là bản ghi lịch sử thật (deadline/completedAt), không cần tích luỹ qua cron.
+   */
+  async monthlyStats(userId: string, month?: string) {
+    const { from, to, month: label } = monthRange(month);
+    const { completedCount, totalCount } = await this.repo.taskCountsInRange(
+      userId,
+      from,
+      to,
+    );
+    const completionPercent =
+      totalCount > 0 ? round1((completedCount / totalCount) * 100) : 0;
+
+    const prevLabel = previousMonthLabel(label);
+    const prevRange = monthRange(prevLabel);
+    const prevCounts = await this.repo.taskCountsInRange(
+      userId,
+      prevRange.from,
+      prevRange.to,
+    );
+
+    let previousMonth: { month: string; completionPercent: number } | null = null;
+    let changePercent: number | null = null;
+    if (prevCounts.totalCount > 0) {
+      const prevPercent = round1(
+        (prevCounts.completedCount / prevCounts.totalCount) * 100,
+      );
+      previousMonth = { month: prevLabel, completionPercent: prevPercent };
+      changePercent = round1(completionPercent - prevPercent);
+    }
+
+    return {
+      month: label,
+      completedCount,
+      totalCount,
+      completionPercent,
+      previousMonth,
       changePercent,
     };
   }

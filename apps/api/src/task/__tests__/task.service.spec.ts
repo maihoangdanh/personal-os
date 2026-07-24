@@ -44,7 +44,7 @@ describe('TaskService', () => {
       findOpenTimeLog: jest.fn(),
       startTimer: jest.fn(),
       stopTimer: jest.fn(),
-      weeklyTaskCounts: jest.fn(),
+      taskCountsInRange: jest.fn(),
       upsertWeeklyTaskStat: jest.fn().mockResolvedValue(undefined),
       findWeeklyTaskStat: jest.fn(),
     };
@@ -213,7 +213,7 @@ describe('TaskService', () => {
 
   describe('weeklyStats', () => {
     it('computes completionPercent and upserts this week, no previous week -> changePercent null', async () => {
-      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 3, totalCount: 6 });
+      repo.taskCountsInRange.mockResolvedValue({ completedCount: 3, totalCount: 6 });
       repo.findWeeklyTaskStat.mockResolvedValue(null);
       const res = await service.weeklyStats(userId);
       expect(res.completedCount).toBe(3);
@@ -230,14 +230,14 @@ describe('TaskService', () => {
     });
 
     it('returns 0% when the week has no tasks (no division by zero)', async () => {
-      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 0, totalCount: 0 });
+      repo.taskCountsInRange.mockResolvedValue({ completedCount: 0, totalCount: 0 });
       repo.findWeeklyTaskStat.mockResolvedValue(null);
       const res = await service.weeklyStats(userId);
       expect(res.completionPercent).toBe(0);
     });
 
     it('computes changePercent as the percentage-point delta vs previous week', async () => {
-      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 6, totalCount: 10 }); // 60%
+      repo.taskCountsInRange.mockResolvedValue({ completedCount: 6, totalCount: 10 }); // 60%
       repo.findWeeklyTaskStat.mockResolvedValue({
         weekStart: '2026-07-13',
         completedCount: 4,
@@ -250,7 +250,7 @@ describe('TaskService', () => {
     });
 
     it('ignores a previous week snapshot that itself has totalCount 0', async () => {
-      repo.weeklyTaskCounts.mockResolvedValue({ completedCount: 1, totalCount: 2 });
+      repo.taskCountsInRange.mockResolvedValue({ completedCount: 1, totalCount: 2 });
       repo.findWeeklyTaskStat.mockResolvedValue({
         weekStart: '2026-07-13',
         completedCount: 0,
@@ -259,6 +259,55 @@ describe('TaskService', () => {
       const res = await service.weeklyStats(userId);
       expect(res.previousWeek).toBeNull();
       expect(res.changePercent).toBeNull();
+    });
+  });
+
+  describe('monthlyStats', () => {
+    it('computes completionPercent for the given month, no previous month data -> null', async () => {
+      repo.taskCountsInRange
+        .mockResolvedValueOnce({ completedCount: 6, totalCount: 10 }) // tháng được chọn
+        .mockResolvedValueOnce({ completedCount: 0, totalCount: 0 }); // tháng trước
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.month).toBe('2026-07');
+      expect(res.completionPercent).toBe(60);
+      expect(res.previousMonth).toBeNull();
+      expect(res.changePercent).toBeNull();
+    });
+
+    it('computes changePercent as percentage-point delta vs previous month', async () => {
+      repo.taskCountsInRange
+        .mockResolvedValueOnce({ completedCount: 8, totalCount: 10 }) // 80%, tháng chọn
+        .mockResolvedValueOnce({ completedCount: 5, totalCount: 10 }); // 50%, tháng trước
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.completionPercent).toBe(80);
+      expect(res.previousMonth).toEqual({ month: '2026-06', completionPercent: 50 });
+      expect(res.changePercent).toBe(30);
+    });
+
+    it('handles January -> rolls back to December of previous year', async () => {
+      repo.taskCountsInRange
+        .mockResolvedValueOnce({ completedCount: 1, totalCount: 2 })
+        .mockResolvedValueOnce({ completedCount: 1, totalCount: 1 });
+      const res = await service.monthlyStats(userId, '2026-01');
+      expect(res.previousMonth?.month).toBe('2025-12');
+    });
+
+    it('returns 0% when the month has no tasks (no division by zero)', async () => {
+      repo.taskCountsInRange
+        .mockResolvedValueOnce({ completedCount: 0, totalCount: 0 })
+        .mockResolvedValueOnce({ completedCount: 0, totalCount: 0 });
+      const res = await service.monthlyStats(userId, '2026-07');
+      expect(res.completionPercent).toBe(0);
+    });
+
+    it('defaults to the current month when no month argument given', async () => {
+      repo.taskCountsInRange
+        .mockResolvedValueOnce({ completedCount: 0, totalCount: 0 })
+        .mockResolvedValueOnce({ completedCount: 0, totalCount: 0 });
+      const res = await service.monthlyStats(userId);
+      const now = new Date();
+      const expectedMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      expect(res.month).toBe(expectedMonth);
     });
   });
 });
