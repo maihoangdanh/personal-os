@@ -40,6 +40,17 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+function dateLabel(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Danh sách "YYYY-MM-DD" cho mọi ngày thật trong tháng (tự động đúng năm nhuận). */
+function daysInMonthList(label: string): string[] {
+  const [y, m] = label.split('-').map(Number);
+  const total = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: total }, (_, i) => `${label}-${String(i + 1).padStart(2, '0')}`);
+}
+
 @Injectable()
 export class HabitService {
   constructor(
@@ -210,6 +221,33 @@ export class HabitService {
       changePercent,
       habitCount: habits.length,
       longestCurrentStreak,
+    };
+  }
+
+  /**
+   * Trang Analytics — heatmap kiểu GitHub: mỗi habit + danh sách ngày đã check-in
+   * trong tháng (để frontend tô đậm đúng ô).
+   */
+  async dailyStats(userId: string, month?: string) {
+    const { from, to, month: label } = monthRange(month);
+    const habits = await this.repo.findManyScoped(userId);
+    const logs = await this.repo.findLogsInRangeForUser(userId, from, to);
+
+    const checkedByHabit = new Map<string, Set<string>>();
+    for (const log of logs) {
+      const set = checkedByHabit.get(log.habitId) ?? new Set<string>();
+      set.add(dateLabel(log.logDate));
+      checkedByHabit.set(log.habitId, set);
+    }
+
+    return {
+      month: label,
+      days: daysInMonthList(label),
+      habits: habits.map((h) => ({
+        habitId: h.id,
+        name: h.name,
+        checkedDates: Array.from(checkedByHabit.get(h.id) ?? []).sort(),
+      })),
     };
   }
 

@@ -68,4 +68,20 @@ export class HabitRepository {
       },
     });
   }
+
+  /** Mọi HabitLog (mọi habit của user) trong khoảng [from, to] — cho heatmap Analytics. */
+  findLogsInRangeForUser(
+    userId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{ habitId: string; logDate: Date }[]> {
+    return prisma.habitLog.findMany({
+      where: {
+        deletedAt: null,
+        logDate: { gte: from, lte: to },
+        habit: { userId, deletedAt: null },
+      },
+      select: { habitId: true, logDate: true },
+    });
+  }
 }

@@ -96,6 +96,7 @@ describe('HabitService', () => {
       createLog: jest.fn(),
       findLogDates: jest.fn(),
       countLogsInRange: jest.fn(),
+      findLogsInRangeForUser: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new HabitService(repo as any, audit as any);
@@ -207,6 +208,37 @@ describe('HabitService', () => {
       const res = await service.monthlyStats(userId, '2026-07');
       expect(res.longestCurrentStreak).toBeNull();
       expect(res.habitCount).toBe(0);
+    });
+  });
+
+  describe('dailyStats', () => {
+    it('returns every day of the month + checkedDates per habit', async () => {
+      repo.findManyScoped.mockResolvedValue([
+        makeHabit({ id: 'habit-1', name: 'Đọc sách' }),
+        makeHabit({ id: 'habit-2', name: 'Tập thể dục' }),
+      ]);
+      repo.findLogsInRangeForUser.mockResolvedValue([
+        { habitId: 'habit-1', logDate: new Date('2026-07-01T00:00:00Z') },
+        { habitId: 'habit-1', logDate: new Date('2026-07-03T00:00:00Z') },
+        { habitId: 'habit-2', logDate: new Date('2026-07-02T00:00:00Z') },
+      ]);
+
+      const res = await service.dailyStats(userId, '2026-07');
+      expect(res.month).toBe('2026-07');
+      expect(res.days).toHaveLength(31);
+      expect(res.days[0]).toBe('2026-07-01');
+
+      const h1 = res.habits.find((h: any) => h.habitId === 'habit-1')!;
+      const h2 = res.habits.find((h: any) => h.habitId === 'habit-2')!;
+      expect(h1.checkedDates).toEqual(['2026-07-01', '2026-07-03']);
+      expect(h2.checkedDates).toEqual(['2026-07-02']);
+    });
+
+    it('habit with no check-ins this month has an empty checkedDates array', async () => {
+      repo.findManyScoped.mockResolvedValue([makeHabit({ id: 'habit-1', name: 'X' })]);
+      repo.findLogsInRangeForUser.mockResolvedValue([]);
+      const res = await service.dailyStats(userId, '2026-07');
+      expect(res.habits[0].checkedDates).toEqual([]);
     });
   });
 });

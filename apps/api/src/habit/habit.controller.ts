@@ -42,6 +42,14 @@ export class HabitController {
     return this.habits.monthlyStats(user.userId, month);
   }
 
+  @Get('monthly-stats/daily')
+  dailyStats(
+    @CurrentUser() user: AuthUser,
+    @Query('month') month?: string,
+  ) {
+    return this.habits.dailyStats(user.userId, month);
+  }
+
   @Get(':id')
   get(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.habits.get(user.userId, id);
